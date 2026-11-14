@@ -97,7 +97,7 @@ document.getElementById('modelSelect').addEventListener('change',event=>selectFl
 renderFlashingCatalog();
 function refreshModelUI(){
  const zinc=selectedModel==='zinc',outer=selectedModel==='zincOuter',corner=selectedModel==='corner',ridge=selectedModel==='ridge'||selectedModel==='ridgeLarge'||selectedModel==='ridgeLower',lower=selectedModel==='ridgeLower',gutter=selectedModel==='gutter70',name=modelNames[selectedModel];
- document.getElementById('versionLabel').textContent=name+' · 개발용 v3.43';
+ document.getElementById('versionLabel').textContent=name+' · 개발용 v3.44';
  document.getElementById('modelTag').textContent=name+' · 실시간 3D 형상';
  document.getElementById('modelHeading').textContent=name+' 치수 설정';
  document.getElementById('modelIntro').textContent=gutter?'처마홈통 70: 왼쪽 끝 세로 20, 상단 가로 20, 왼쪽 벽 100, 바닥 70, 오른쪽 벽 50, 오른쪽 사선 35mm 순서입니다. 사선 각도 30°는 사진에 없는 예시값입니다. 왼쪽 끝에만 180° 안쪽 되접힘이 있고 접힘 길이도 수동으로 조절할 수 있습니다.':lower?'용마루(하): 좌우 경사면 각 150mm, 양끝 바깥쪽 180° 되접힘. 내각과 접힘 길이는 직접 수정할 수 있습니다. 내각 126° 및 접힘 10mm는 예시값입니다.':ridge?(selectedModel==='ridgeLarge'?'용마루 大(상): 좌우 경사면 200mm, 세로 턱 35mm, 끝 날개 60mm. 용마루 내각 126°는 예시입니다.':'용마루 小(상): 좌우 경사면 143mm, 세로 턱 20mm, 끝 날개 30mm. 경사각 27°는 예시입니다.')+' 양 끝 180° 안쪽 접힘 길이와 내각은 수동으로 조절 가능합니다.':corner?'코너카바의 단면을 아래쪽 끝부터 ①~⑥ 순서로 설정합니다. 본체 6개 치수 20 / 20 / 105 / 105 / 20 / 20mm와 양쪽 끝 되접힘 길이를 각각 조절할 수 있습니다. 접힘 초기값 10mm는 예시이며 고정값이 아닙니다.':outer?'아연 BASE 외부는 50T·75T·100T 규격을 선택할 수 있습니다. 좌측 40 / 우측 하강 15 / 끝단 10mm이며 바닥 폭은 규격별로 달라집니다.':zinc?'상단 되접힘이 없는 아연 BASE 내부입니다. 치수는 직접 수정할 수 있습니다.':'상단 180° 되접힘이 있는 C/S U바입니다. 치수는 직접 수정할 수 있습니다.';
