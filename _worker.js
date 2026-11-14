@@ -88,6 +88,15 @@ export default {
     else await db.prepare('UPDATE yh_browsers SET status=? WHERE id=?').bind(x.action==='approve'?'approved':'denied',x.id).run();
     return json({ok:true});
    }
+   if(p==='/api/admin/version'&&m==='GET'){
+    if(!authorized)return fail('관리자 권한이 필요합니다',401);
+    phase='ASSET_DIAGNOSTICS';
+    const u2=new URL('/index.html',u.origin);
+    const r=await env.ASSETS.fetch(new Request(u2.toString(),{method:'GET'}));
+    const html=await r.text();
+    const versions=[...new Set(html.match(/v3\\.\\d{2}/g)||[])];
+    return json({workerBuild:'diagnostic-2026-11-14',assetHttpStatus:r.status,assetSize:html.length,assetVersions:versions,rootHtml:html.includes('flashingCatalog'),hasInternalAngle:html.includes('오른쪽 사선 내각'),assetsContentType:r.headers.get('content-type')||''});
+   }
    if(p.startsWith('/api/'))return fail('없는 경로',404);
    if(m!=='GET'&&m!=='HEAD')return fail('허용되지 않은 요청',405);
    if(!authorized){
