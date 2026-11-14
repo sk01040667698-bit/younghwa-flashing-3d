@@ -18,9 +18,13 @@ async function hmac(v,k){const key=await crypto.subtle.importKey('raw',enc.encod
 function equal(a,b){if(a.length!==b.length)return false;let n=0;for(let i=0;i<a.length;i++)n|=a.charCodeAt(i)^b.charCodeAt(i);return n===0}
 const originOK=r=>r.headers.get('origin')===new URL(r.url).origin;
 async function data(r){if(Number(r.headers.get('content-length')||0)>4000)throw Error('oversized request');const s=await r.text();if(s.length>4000)throw Error('oversized request');return JSON.parse(s)}
+let schemaReady=null;
 async function setup(db){
- await db.prepare("CREATE TABLE IF NOT EXISTS yh_browsers(id TEXT PRIMARY KEY,name TEXT NOT NULL,department TEXT NOT NULL,pc TEXT NOT NULL,code TEXT NOT NULL,status TEXT NOT NULL,requested TEXT NOT NULL)").run();
- await db.prepare("CREATE TABLE IF NOT EXISTS yh_login(ip TEXT PRIMARY KEY,count INTEGER NOT NULL,started INTEGER NOT NULL)").run();
+ if(!schemaReady) schemaReady=(async()=>{
+  await db.prepare("CREATE TABLE IF NOT EXISTS yh_browsers(id TEXT PRIMARY KEY,name TEXT NOT NULL,department TEXT NOT NULL,pc TEXT NOT NULL,code TEXT NOT NULL,status TEXT NOT NULL,requested TEXT NOT NULL)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS yh_login(ip TEXT PRIMARY KEY,count INTEGER NOT NULL,started INTEGER NOT NULL)").run();
+ })().catch(e=>{schemaReady=null;throw e});
+ return schemaReady;
 }
 async function browser(r,db){const token=cookie(r,'yh_device');return /^[a-f0-9]{64}$/.test(token)?db.prepare('SELECT * FROM yh_browsers WHERE id=?').bind(await digest(token)).first():null}
 async function admin(r,secret){const pieces=cookie(r,'yh_admin').split('.');if(pieces.length!==2||!(/^\d{13}$/.test(pieces[0]))||!(/^[a-f0-9]{64}$/.test(pieces[1]))||Number(pieces[0])<Date.now()||Number(pieces[0])>Date.now()+28800000)return false;return equal(pieces[1],await hmac(pieces[0],secret))}
@@ -30,11 +34,14 @@ const adminPage=()=>page('영화 후레싱 3D 관리자','<div class="kicker">YO
 export default {
  async fetch(request,env){
   const u=new URL(request.url),p=u.pathname,m=request.method,db=env.ACCESS_DB;
+  let phase='START';
   try{
    if(!db)return page('설정 점검','<div class="kicker">YOUNGHWA · STAFF ACCESS</div><h1>데이터베이스 연결 확인 필요</h1><p>Production의 ACCESS_DB가 배포에 반영되지 않았습니다.</p>');
    if(typeof env.ADMIN_PASSWORD!=='string')return page('설정 점검','<div class="kicker">YOUNGHWA · STAFF ACCESS</div><h1>비밀번호 설정 반영 확인 필요</h1><p>Production의 ADMIN_PASSWORD Secret이 배포에 반영되지 않았습니다.</p>');
    if(env.ADMIN_PASSWORD.length<14)return page('설정 점검','<div class="kicker">YOUNGHWA · STAFF ACCESS</div><h1>관리자 비밀번호 길이 확인</h1><p>등록된 관리자 비밀번호가 최소 14자 조건을 충족하지 않습니다. Cloudflare에서 14자 이상으로 변경하고 재배포하세요. 비밀번호를 채팅에 보내지 마세요.</p>');
+   phase='DATABASE_INIT';
    await setup(db);
+   phase='ROUTING';
    if(p==='/access'&&m==='GET')return accessPage();
    if(p==='/admin'&&m==='GET')return adminPage();
    if(p==='/api/status'&&m==='GET'){const b=await browser(request,db);return json(b?{status:b.status,code:b.code}:{status:'new'});}
@@ -46,11 +53,14 @@ export default {
     await db.prepare('INSERT INTO yh_browsers(id,name,department,pc,code,status,requested) VALUES(?,?,?,?,?,?,?)').bind(id,x.name.trim(),x.department.trim(),x.pc.trim(),code,'pending',new Date().toISOString()).run();
     return setCookie(json({status:'pending',code}),'yh_device',token,31536000);
    }
+   phase='SESSION_VERIFY';
    const authorized=await admin(request,env.ADMIN_PASSWORD);
    if(p==='/api/admin/login'&&m==='POST'){
     if(!originOK(request))return fail('유효하지 않은 요청',403);
+    phase='LOGIN_RATE_LIMIT';
     const ip=await digest(request.headers.get('CF-Connecting-IP')||'unknown'),now=Date.now(),r=await db.prepare('SELECT * FROM yh_login WHERE ip=?').bind(ip).first();
     if(r&&r.count>=5&&now-r.started<900000)return fail('로그인 시도가 너무 많습니다. 15분 후 다시 시도하세요',429);
+    phase='LOGIN_CHECK';
     const x=await data(request);
     if(typeof x.password!=='string'||!equal(await digest(x.password),await digest(env.ADMIN_PASSWORD))){
      const n=r&&now-r.started<900000?r.count+1:1,at=r&&now-r.started<900000?r.started:now;
@@ -58,15 +68,18 @@ export default {
      return fail('관리자 비밀번호가 올바르지 않습니다',401);
     }
     await db.prepare('DELETE FROM yh_login WHERE ip=?').bind(ip).run();
+    phase='LOGIN_SESSION';
     const exp=String(now+28800000);return setCookie(json({ok:true}),'yh_admin',exp+'.'+await hmac(exp,env.ADMIN_PASSWORD),28800);
    }
    if(p==='/api/admin/logout'&&m==='POST'){if(!originOK(request))return fail('잘못된 요청',403);return setCookie(json({ok:true}),'yh_admin','',0)}
    if(p==='/api/admin/list'&&m==='GET'){
     if(!authorized)return fail('로그인이 필요합니다',401);
+    phase='ADMIN_LIST';
     const rows=await db.prepare('SELECT id,name,department,pc,code,status,requested FROM yh_browsers ORDER BY requested DESC LIMIT 1000').all();return json({devices:rows.results});
    }
    if(p==='/api/admin/action'&&m==='POST'){
     if(!authorized||!originOK(request))return fail('권한 없음',403);
+    phase='ADMIN_ACTION';
     const x=await data(request);
     if(typeof x.id!=='string'||!/^[a-f0-9]{64}$/.test(x.id)||!['approve','deny','delete'].includes(x.action))return fail('잘못된 요청');
     if(x.action==='delete')await db.prepare('DELETE FROM yh_browsers WHERE id=?').bind(x.id).run();
@@ -79,6 +92,10 @@ export default {
    if(!b||b.status!=='approved')return Response.redirect(u.origin+'/access',302);
    const asset=await env.ASSETS.fetch(request),h=new Headers(asset.headers);h.set('Cache-Control','private,no-store');
    return new Response(asset.body,{status:asset.status,statusText:asset.statusText,headers:h});
-  }catch(e){console.error('Staff access gate',p,e?.name,e?.message);if(p.startsWith('/api/'))return fail('서버 처리 오류가 발생했습니다. 관리자가 Cloudflare 로그를 확인해야 합니다.',503);return page('접속 제한','<div class="kicker">YOUNGHWA · STAFF ACCESS</div><h1>접속 확인 중 오류</h1><p>안전을 위해 접속을 제한했습니다. 관리자에게 문의하세요.</p>')}
+  }catch(e){
+   console.error('Staff access gate',p,'phase:',phase,e?.name,e?.message);
+   if(p.startsWith('/api/'))return fail('서버 처리 오류 ('+phase+'). 관리자에게 알려주세요.',503);
+   return page('접속 제한','<div class="kicker">YOUNGHWA · STAFF ACCESS</div><h1>접속 확인 중 오류</h1><p>안전을 위해 접속을 제한했습니다. 관리자에게 문의하세요.</p>');
+  }
  }
 };
