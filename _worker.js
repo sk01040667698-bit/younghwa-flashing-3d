@@ -79,6 +79,6 @@ export default {
    if(!b||b.status!=='approved')return Response.redirect(u.origin+'/access',302);
    const asset=await env.ASSETS.fetch(request),h=new Headers(asset.headers);h.set('Cache-Control','private,no-store');
    return new Response(asset.body,{status:asset.status,statusText:asset.statusText,headers:h});
-  }catch(e){console.error('Staff access gate',e?.message);return page('접속 제한','<div class="kicker">YOUNGHWA · STAFF ACCESS</div><h1>접속 확인 중 오류</h1><p>안전을 위해 접속을 제한했습니다. 관리자에게 문의하세요.</p>')}
+  }catch(e){console.error('Staff access gate',p,e?.name,e?.message);if(p.startsWith('/api/'))return fail('서버 처리 오류가 발생했습니다. 관리자가 Cloudflare 로그를 확인해야 합니다.',503);return page('접속 제한','<div class="kicker">YOUNGHWA · STAFF ACCESS</div><h1>접속 확인 중 오류</h1><p>안전을 위해 접속을 제한했습니다. 관리자에게 문의하세요.</p>')}
  }
 };
