@@ -1,3 +1,4 @@
+/* Configuration activation deployment: ACCESS_DB and ADMIN_PASSWORD required. */
 /* YOUNGHWA employee browser approval; Cloudflare Pages advanced mode.
  Bind ACCESS_DB (D1) and ADMIN_PASSWORD (encrypted environment secret).
  Fail closed if missing. Never commit credentials to GitHub. */
