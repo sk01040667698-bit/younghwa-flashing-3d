@@ -14,7 +14,7 @@ const setCookie=(r,n,v,age)=>{r.headers.append('Set-Cookie',n+'='+v+'; HttpOnly;
 const rand=()=>Array.from(crypto.getRandomValues(new Uint8Array(32)),v=>v.toString(16).padStart(2,'0')).join('');
 const bytesToHex=b=>Array.from(new Uint8Array(b),v=>v.toString(16).padStart(2,'0')).join('');
 async function digest(s){return bytesToHex(await crypto.subtle.digest('SHA-256',enc.encode(s)))}
-async function hmac(v,k){const key=await crypto.subtle.importKey('raw',enc.encode(k),'HMAC',false,['sign']);return bytesToHex(await crypto.subtle.sign('HMAC',key,enc.encode(v)))}
+async function hmac(v,k){const key=await crypto.subtle.importKey('raw',enc.encode(k),{name:'HMAC',hash:'SHA-256'},false,['sign']);return bytesToHex(await crypto.subtle.sign('HMAC',key,enc.encode(v)))}
 function equal(a,b){if(a.length!==b.length)return false;let n=0;for(let i=0;i<a.length;i++)n|=a.charCodeAt(i)^b.charCodeAt(i);return n===0}
 const originOK=r=>r.headers.get('origin')===new URL(r.url).origin;
 async function data(r){if(Number(r.headers.get('content-length')||0)>4000)throw Error('oversized request');const s=await r.text();if(s.length>4000)throw Error('oversized request');return JSON.parse(s)}
