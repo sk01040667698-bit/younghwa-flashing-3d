@@ -18,13 +18,14 @@ async function hmac(v,k){const key=await crypto.subtle.importKey('raw',enc.encod
 function equal(a,b){if(a.length!==b.length)return false;let n=0;for(let i=0;i<a.length;i++)n|=a.charCodeAt(i)^b.charCodeAt(i);return n===0}
 const originOK=r=>r.headers.get('origin')===new URL(r.url).origin;
 async function data(r){if(Number(r.headers.get('content-length')||0)>4000)throw Error('oversized request');const s=await r.text();if(s.length>4000)throw Error('oversized request');return JSON.parse(s)}
-let schemaReady=null;
+/* Only cache a primitive success flag. Never share D1 I/O promises
+   between Cloudflare request contexts. */
+let schemaInitialized=false;
 async function setup(db){
- if(!schemaReady) schemaReady=(async()=>{
-  await db.prepare("CREATE TABLE IF NOT EXISTS yh_browsers(id TEXT PRIMARY KEY,name TEXT NOT NULL,department TEXT NOT NULL,pc TEXT NOT NULL,code TEXT NOT NULL,status TEXT NOT NULL,requested TEXT NOT NULL)").run();
-  await db.prepare("CREATE TABLE IF NOT EXISTS yh_login(ip TEXT PRIMARY KEY,count INTEGER NOT NULL,started INTEGER NOT NULL)").run();
- })().catch(e=>{schemaReady=null;throw e});
- return schemaReady;
+ if(schemaInitialized)return;
+ await db.prepare("CREATE TABLE IF NOT EXISTS yh_browsers(id TEXT PRIMARY KEY,name TEXT NOT NULL,department TEXT NOT NULL,pc TEXT NOT NULL,code TEXT NOT NULL,status TEXT NOT NULL,requested TEXT NOT NULL)").run();
+ await db.prepare("CREATE TABLE IF NOT EXISTS yh_login(ip TEXT PRIMARY KEY,count INTEGER NOT NULL,started INTEGER NOT NULL)").run();
+ schemaInitialized=true;
 }
 async function browser(r,db){const token=cookie(r,'yh_device');return /^[a-f0-9]{64}$/.test(token)?db.prepare('SELECT * FROM yh_browsers WHERE id=?').bind(await digest(token)).first():null}
 async function admin(r,secret){const pieces=cookie(r,'yh_admin').split('.');if(pieces.length!==2||!(/^\d{13}$/.test(pieces[0]))||!(/^[a-f0-9]{64}$/.test(pieces[1]))||Number(pieces[0])<Date.now()||Number(pieces[0])>Date.now()+28800000)return false;return equal(pieces[1],await hmac(pieces[0],secret))}
