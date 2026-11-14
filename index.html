@@ -31,7 +31,51 @@ function refreshModelUI(){
 const fields=document.getElementById('fields');for(const [key,label,min,max,step] of config){const box=document.createElement('div');box.className='field';box.dataset.field=key;const lab=document.createElement('label');const labelText=document.createElement('span');labelText.textContent=label;const entry=document.createElement('span');entry.className='dimension-entry';const number=document.createElement('input');number.type='number';number.min=min;number.max=max;number.step=step;number.value=values[key];number.dataset.dimension=key;number.setAttribute('aria-label',label+' 직접 입력 (mm)');number.title='숫자를 입력하고 Enter를 누르세요';const unit=document.createElement('span');unit.textContent='mm';entry.append(number,unit);lab.append(labelText,entry);const input=document.createElement('input');input.type='range';input.min=min;input.max=max;input.step=step;input.value=values[key];input.dataset.key=key;function commitNumber(){const n=Number(number.value);if(number.value.trim()===''||!Number.isFinite(n)||n<min||n>max){number.value=values[key];number.title='허용 범위: '+min+'~'+max+' mm';return}values[key]=n;input.value=n;number.value=n;if(key==='width'||key==='left'||key==='right'||key==='lip')markCustom();draw()}input.addEventListener('input',()=>{values[key]=+input.value;number.value=values[key];if(key==='width'||key==='left'||key==='right'||key==='lip')markCustom();draw()});number.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commitNumber();number.blur()}else if(e.key==='Escape'){number.value=values[key];number.blur()}});number.addEventListener('blur',commitNumber);box.append(lab,input);fields.append(box)}
 function hexrgb(h){return [1,3,5].map(i=>parseInt(h.slice(i,i+2),16))}function shade(rgb,f){return 'rgb('+rgb.map(v=>Math.round(Math.max(0,Math.min(255,v*f)))).join(',')+')'}
 function resize(){let dpr=Math.min(devicePixelRatio||1,2),r=canvas.getBoundingClientRect();canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);draw()}function project(p){const [x,y,z]=p;let xx=x*Math.cos(yaw)-z*Math.sin(yaw),zz=x*Math.sin(yaw)+z*Math.cos(yaw);let yy=y*Math.cos(pitch)-zz*Math.sin(pitch),depth=y*Math.sin(pitch)+zz*Math.cos(pitch);let s=Math.min(canvas.clientWidth/850,canvas.clientHeight/650)*zoom*1.75;return {x:canvas.clientWidth/2+xx*s,y:canvas.clientHeight/2-yy*s,depth}}
+
+function cornerProfilePoints(){
+ const v=values;
+ return [[0,0],[0,v.corner1],[-v.corner2,v.corner1],
+ [-v.corner2,v.corner1+v.corner3],
+ [-v.corner2+v.corner4,v.corner1+v.corner3],
+ [-v.corner2+v.corner4,v.corner1+v.corner3-v.corner5],
+ [-v.corner2+v.corner4+v.corner6,v.corner1+v.corner3-v.corner5]];
+}
+function renderCornerDiagram(){
+ const p=cornerProfilePoints(),v=values;
+ const xs=p.map(q=>q[0]),ys=p.map(q=>q[1]);
+ const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+ const scale=Math.min(174/Math.max(1,maxX-minX),125/Math.max(1,maxY-minY));
+ const startX=(300-(maxX-minX)*scale)/2;
+ const X=q=>startX+(q[0]-minX)*scale,Y=q=>205-(q[1]-minY)*scale;
+ const at=i=>[X(p[i]),Y(p[i])],mid=(a,b)=>[(at(a)[0]+at(b)[0])/2,(at(a)[1]+at(b)[1])/2];
+ const n=i=>String(Number(v['corner'+i].toFixed(2)));
+ const path=p.map((q,i)=>(i===0?'M':'L')+' '+X(q).toFixed(2)+' '+Y(q).toFixed(2)).join(' ');
+ const labelSpecs=[
+ [at(0)[0]+30,mid(0,1)[1]+4,1],
+ [mid(1,2)[0],at(1)[1]+20,2],
+ [at(2)[0]-26,mid(2,3)[1]+4,3],
+ [mid(3,4)[0],at(3)[1]-13,4],
+ [at(4)[0]+28,mid(4,5)[1]+4,5],
+ [mid(5,6)[0],at(5)[1]+22,6]];
+ const labels=labelSpecs.map(([x,y,i])=>'<text x="'+x+'" y="'+y+'">'+i+' : '+n(i)+'</text>').join('');
+ document.getElementById('sectionDrawing').innerHTML=`
+ <svg viewBox="0 0 300 355" xmlns="http://www.w3.org/2000/svg" aria-label="코너카바 단면도, 아래쪽부터 20 20 105 105 20 20 밀리미터">
+ <g fill="none" stroke="#30363b" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"><path d="${path}"/></g>
+ <g fill="#304657" font-family="Arial,'Malgun Gothic',sans-serif" font-size="12" font-weight="700" text-anchor="middle">${labels}</g>
+ <g fill="#3e515e" font-family="Arial,'Malgun Gothic',sans-serif" font-size="12" font-weight="700">
+ <text x="12" y="18">아래 끝부터 ① → ⑥ 순서</text>
+ </g>
+ <path d="M 19 275 V 345" stroke="#3f6073" stroke-width="3" stroke-linecap="round"/>
+ <g fill="#263e4d" font-family="Arial,'Malgun Gothic',sans-serif" font-size="15" font-weight="700">
+ <text x="32" y="292">제품 길이 : ${v.length} mm</text>
+ <text x="32" y="316">색상코드 : ${selectedSteelCode}</text>
+ <text x="32" y="340">강판 두께 : ${v.thickness} mm</text>
+ </g>
+ </svg>`;
+}
 function renderDiagram(){
+ if(selectedModel==='corner'){renderCornerDiagram();return;}
+
  if(selectedModel==='zincOuter'){
  const {width:W,left:L,right:R,lip:P,length:D,thickness:T}=values;
  const scale=Math.min(160/W,100/L,30/R), x0=56,x1=x0+W*scale,base=160;
@@ -129,10 +173,52 @@ document.getElementById('previewPng').addEventListener('click',()=>{
   source.src=url;
  }catch(err){alert('PNG 도면 열기 실패: '+err.message)}
 });
+
+function drawCorner(){
+ const p=cornerProfilePoints(),xs=p.map(q=>q[0]),ys=p.map(q=>q[1]);
+ const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+ const D=values.length,scale=360/Math.max(maxX-minX,maxY-minY,D*.75);
+ const midX=(minX+maxX)/2,midY=(minY+maxY)/2;
+ const a=p.map(q=>[(q[0]-midX)*scale,(q[1]-midY)*scale]);
+ const t=Math.max(.65,Math.min(values.thickness*scale*3,Math.min(maxX-minX,maxY-minY)*scale*.06));
+ const z0=-D*scale/2,z1=D*scale/2;
+ function offset(sign){
+  return a.map((q,i)=>{
+   function normal(u,v){const dx=v[0]-u[0],dy=v[1]-u[1],d=Math.hypot(dx,dy)||1;return [-dy/d,dx/d]}
+   if(i===0){const n=normal(a[0],a[1]);return [q[0]+n[0]*sign*t/2,q[1]+n[1]*sign*t/2]}
+   if(i===a.length-1){const n=normal(a[i-1],a[i]);return [q[0]+n[0]*sign*t/2,q[1]+n[1]*sign*t/2]}
+   const n1=normal(a[i-1],a[i]),n2=normal(a[i],a[i+1]);
+   const den=Math.max(.18,1+n1[0]*n2[0]+n1[1]*n2[1]);
+   return [q[0]+(n1[0]+n2[0])*sign*t/(2*den),q[1]+(n1[1]+n2[1])*sign*t/(2*den)]
+  });
+ }
+ const out=offset(1),inside=offset(-1),faces=[];
+ function poly(arr,fill,outline=true){
+  const proj=arr.map(project);
+  faces.push({proj,fill,outline,depth:proj.reduce((n,q)=>n+q.depth,0)/proj.length});
+ }
+ for(let i=0;i<a.length-1;i++){
+  poly([[...out[i],z0],[...out[i+1],z0],[...out[i+1],z1],[...out[i],z1]],steelColors[selectedSteelCode],false);
+  poly([[...inside[i],z0],[...inside[i+1],z0],[...inside[i+1],z1],[...inside[i],z1]],'#777777',false);
+ }
+ const border=out.concat([...inside].reverse());
+ for(let i=0;i<border.length;i++){
+  const next=(i+1)%border.length;
+  poly([[...border[i],z0],[...border[next],z0],[...border[next],z1],[...border[i],z1]],steelColors[selectedSteelCode],false);
+ }
+ poly(border.map(q=>[...q,z0]),'#adb4b8');
+ poly(border.map(q=>[...q,z1]),'#adb4b8');
+ faces.sort((a,b)=>a.depth-b.depth);
+ for(const f of faces){
+  ctx.beginPath();f.proj.forEach((q,i)=>i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));ctx.closePath();
+  ctx.fillStyle=f.fill;ctx.fill();
+  if(f.outline){ctx.strokeStyle='rgba(23,34,43,.65)';ctx.lineWidth=.8;ctx.stroke()}
+ }
+}
 function draw(){
  renderDiagram();
  const w=canvas.clientWidth,h=canvas.clientHeight;
- ctx.clearRect(0,0,w,h);if(!w||!h)return;
+ ctx.clearRect(0,0,w,h);if(!w||!h)return;if(selectedModel==='corner'){drawCorner();return;}
  const {width:W,left:L,right:R,length:D,thickness:T,hem:H}=values;
  const scale=380/Math.max(W,L,R,D),x0=-W*scale/2,x1=W*scale/2,z0=-D*scale/2,z1=D*scale/2;
  const l=L*scale,r=R*scale;
