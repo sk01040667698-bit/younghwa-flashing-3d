@@ -119,7 +119,35 @@ function renderCornerDiagram(){
  </g>
  </svg>`;
 }
+function ridgeProfilePoints(){
+ const v=values,a=v.ridgeAngle*Math.PI/180,c=Math.cos(a),h=Math.sin(a);
+ const left=[-v.ridgeSlopeLeft*c,-v.ridgeSlopeLeft*h],right=[v.ridgeSlopeRight*c,-v.ridgeSlopeRight*h],wing=Math.PI/4;
+ const lb=[left[0],left[1]-v.ridgeVerticalLeft],rb=[right[0],right[1]-v.ridgeVerticalRight];
+ return [[lb[0]-v.ridgeFootLeft*Math.cos(wing),lb[1]-v.ridgeFootLeft*Math.sin(wing)],lb,left,[0,0],right,rb,[rb[0]+v.ridgeFootRight*Math.cos(wing),rb[1]-v.ridgeFootRight*Math.sin(wing)]];
+}
+function renderRidgeDiagram(){
+ const p=ridgeProfilePoints(),v=values,xs=p.map(q=>q[0]),ys=p.map(q=>q[1]);
+ const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+ const sc=Math.min(220/Math.max(1,maxX-minX),133/Math.max(1,maxY-minY));
+ const offset=(300-(maxX-minX)*sc)/2,X=q=>offset+(q[0]-minX)*sc,Y=q=>195-(q[1]-minY)*sc;
+ const at=i=>[X(p[i]),Y(p[i])],path=p.map((q,i)=>(i?'L ':'M ')+X(q).toFixed(2)+' '+Y(q).toFixed(2)).join(' ');
+ const nums=[v.ridgeFootLeft,v.ridgeVerticalLeft,v.ridgeSlopeLeft,v.ridgeSlopeRight,v.ridgeVerticalRight,v.ridgeFootRight];
+ const ds=[[0,19],[-18,1],[-8,-12],[8,-12],[18,1],[0,19]];
+ const labels=nums.map((n,i)=>{const a=at(i),b=at(i+1);return '<text x="'+((a[0]+b[0])/2+ds[i][0]).toFixed(1)+'" y="'+((a[1]+b[1])/2+ds[i][1]).toFixed(1)+'">'+n+'</text>'}).join('');
+ document.getElementById('sectionDrawing').innerHTML=`
+ <svg viewBox="0 0 300 330" xmlns="http://www.w3.org/2000/svg" aria-label="용마루 小 상: 좌우 경사면 143밀리미터, 턱 20밀리미터, 끝단 날개 30밀리미터">
+ <g fill="none" stroke="#30363b" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"><path d="${path}"/></g>
+ <g fill="#304657" font-family="Arial,'Malgun Gothic',sans-serif" font-size="13" font-weight="700" text-anchor="middle">${labels}</g>
+ <g fill="#4c606a" font-family="Arial,'Malgun Gothic',sans-serif" font-size="11" font-weight="700"><text x="12" y="19">경사각 (예시) : ${v.ridgeAngle}°</text></g>
+ <path d="M 19 246 V 318" stroke="#3f6073" stroke-width="3" stroke-linecap="round"/>
+ <g fill="#263e4d" font-family="Arial,'Malgun Gothic',sans-serif" font-size="15" font-weight="700">
+ <text x="32" y="264">제품 길이 : ${v.length} mm</text>
+ <text x="32" y="288">색상코드 : ${selectedSteelCode}</text>
+ <text x="32" y="312">강판 두께 : ${v.thickness} mm</text></g></svg>`;
+}
 function renderDiagram(){
+ if(selectedModel==='ridge'){renderRidgeDiagram();return;}
+
  if(selectedModel==='corner'){renderCornerDiagram();return;}
 
  if(selectedModel==='zincOuter'){
