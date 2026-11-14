@@ -119,6 +119,77 @@ function renderCornerDiagram(){
  </g>
  </svg>`;
 }
+function lowerRidgeMainPoints(){
+ const v=values,a=(Math.PI-v.ridgeInnerAngle*Math.PI/180)/2;
+ return [[-v.ridgeSlopeLeft*Math.cos(a),-v.ridgeSlopeLeft*Math.sin(a)],[0,0],
+         [v.ridgeSlopeRight*Math.cos(a),-v.ridgeSlopeRight*Math.sin(a)]];
+}
+function lowerRidgeProfilePoints(){
+ /* Two compact OUTWARD hems. Both are continuous with the sloping sheet,
+    and the left and right return lengths are separately editable. */
+ const body=lowerRidgeMainPoints(),v=values;
+ const radius=Math.min(2.4,Math.max(.6,v.thickness*1.65));
+ const unit=(a,b)=>{const dx=b[0]-a[0],dy=b[1]-a[1],m=Math.hypot(dx,dy)||1;return [dx/m,dy/m]};
+ const offset=(p,d,k)=>[p[0]+d[0]*k,p[1]+d[1]*k];
+ const lt=unit(body[0],body[1]),rt=unit(body[2],body[1]);
+ const ln=[-lt[1],lt[0]],rn=[rt[1],-rt[0]];
+ function quadratic(start,control,end,i){const t=i/12,m=1-t;return [m*m*start[0]+2*m*t*control[0]+t*t*end[0],m*m*start[1]+2*m*t*control[1]+t*t*end[1]];}
+ const leftTip=body[0],leftBack=offset(leftTip,ln,2*radius);
+ const leftEnd=offset(leftBack,lt,v.ridgeHemLeft),leftControl=offset(offset(leftTip,ln,radius),lt,-radius*.85);
+ const left=[leftEnd,leftBack];
+ for(let i=1;i<=12;i++)left.push(quadratic(leftBack,leftControl,leftTip,i));
+ const rightTip=body[2],rightBack=offset(rightTip,rn,2*radius);
+ const rightControl=offset(offset(rightTip,rn,radius),rt,-radius*.85),rightEnd=offset(rightBack,rt,v.ridgeHemRight);
+ const right=[];
+ for(let i=1;i<=12;i++)right.push(quadratic(rightTip,rightControl,rightBack,i));
+ right.push(rightEnd);
+ return [...left,body[1],body[2],...right];
+}
+function renderLowerRidgeDiagram(){
+ const v=values,body=lowerRidgeMainPoints(),xs=body.map(p=>p[0]),ys=body.map(p=>p[1]);
+ const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+ const sc=Math.min(214/Math.max(1,maxX-minX),112/Math.max(1,maxY-minY));
+ const X=p=>(300-(maxX-minX)*sc)/2+(p[0]-minX)*sc,Y=p=>176-(p[1]-minY)*sc;
+ const toPx=p=>[X(p),Y(p)],a=toPx(body[0]),top=toPx(body[1]),b=toPx(body[2]);
+ const round=x=>Number(x.toFixed(2)),point=p=>round(p[0])+' '+round(p[1]);
+ const add=(p,d,k)=>[p[0]+d[0]*k,p[1]+d[1]*k];
+ const direction=(p,q)=>{const dx=q[0]-p[0],dy=q[1]-p[1],m=Math.hypot(dx,dy)||1;return [dx/m,dy/m]};
+ const makeHem=(tip,neighbor,side,length)=>{
+   const d=direction(tip,neighbor),outer=side==='left'?[d[1],-d[0]]:[-d[1],d[0]];
+   const gap=4.8,wingPx=Math.hypot(neighbor[0]-tip[0],neighbor[1]-tip[1]);
+   const back=add(tip,outer,gap),end=add(back,d,Math.max(7,Math.min(length*sc,wingPx*.75,22)));
+   const ctrl=add(add(tip,outer,gap/2),d,-gap*.85);
+   return {tip,back,end,ctrl};
+ };
+ const left=makeHem(a,top,'left',v.ridgeHemLeft),right=makeHem(b,top,'right',v.ridgeHemRight);
+ const profile='M '+point(left.end)+' L '+point(left.back)+' Q '+point(left.ctrl)+' '+point(a)+
+   ' L '+point(top)+' L '+point(b)+' Q '+point(right.ctrl)+' '+point(right.back)+' L '+point(right.end);
+ const angleRad=v.ridgeInnerAngle*Math.PI/180;
+ const arcR=17,tl=direction(top,a),tr=direction(top,b),alp=add(top,tl,arcR),arp=add(top,tr,arcR);
+ const arc='M '+point(alp)+' Q '+round(top[0])+' '+round(top[1]+arcR*1.5)+' '+point(arp);
+ const label=(a,b,value,side)=>{
+  const mid=[(a[0]+b[0])/2,(a[1]+b[1])/2];
+  return '<text x="'+round(mid[0]+(side==='left'?-8:8))+'" y="'+round(mid[1]-14)+'">'+value+'</text>';
+ };
+ document.getElementById('sectionDrawing').innerHTML=`
+ <svg viewBox="0 0 300 330" xmlns="http://www.w3.org/2000/svg" aria-label="용마루 하, 좌우 경사면 각 ${v.ridgeSlopeLeft} 및 ${v.ridgeSlopeRight} 밀리미터, 바깥 접힘 ${v.ridgeHemLeft} 및 ${v.ridgeHemRight} 밀리미터">
+ <g fill="none" stroke="#30363b" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"><path d="${profile}"/></g>
+ <path d="${arc}" stroke="#67869a" stroke-width="1.3" fill="none"/>
+ <g fill="#304657" font-family="Arial,'Malgun Gothic',sans-serif" font-size="13" font-weight="700" text-anchor="middle">
+  ${label(a,top,v.ridgeSlopeLeft,'left')}${label(top,b,v.ridgeSlopeRight,'right')}
+  <text x="${round(top[0])}" y="${round(top[1]+40)}">${v.ridgeInnerAngle}°</text>
+ </g>
+ <g fill="#465d6c" font-family="Arial,'Malgun Gothic',sans-serif" font-size="12" font-weight="700">
+  <text x="10" y="20">좌 바깥 접힘 : ${v.ridgeHemLeft}</text>
+  <text x="290" y="20" text-anchor="end">우 바깥 접힘 : ${v.ridgeHemRight}</text>
+ </g>
+ <path d="M 19 246 V 318" stroke="#3f6073" stroke-width="3" stroke-linecap="round"/>
+ <g fill="#263e4d" font-family="Arial,'Malgun Gothic',sans-serif" font-size="15" font-weight="700">
+  <text x="32" y="264">제품 길이 : ${v.length} mm</text>
+  <text x="32" y="288">색상코드 : ${selectedSteelCode}</text>
+  <text x="32" y="312">강판 두께 : ${v.thickness} mm</text>
+ </g></svg>`;
+}
 function ridgeMainPoints(){
  const v=values,a=(Math.PI-v.ridgeInnerAngle*Math.PI/180)/2,c=Math.cos(a),h=Math.sin(a);
  const left=[-v.ridgeSlopeLeft*c,-v.ridgeSlopeLeft*h],right=[v.ridgeSlopeRight*c,-v.ridgeSlopeRight*h],wing=Math.PI/4;
@@ -225,6 +296,7 @@ function renderRidgeDiagram(){
  </g></svg>`;
 }
 function renderDiagram(){
+ if(selectedModel==='ridgeLower'){renderLowerRidgeDiagram();return;}
  if(selectedModel==='ridge'||selectedModel==='ridgeLarge'){renderRidgeDiagram();return;}
 
  if(selectedModel==='corner'){renderCornerDiagram();return;}
@@ -360,7 +432,7 @@ function drawCorner(p=cornerProfilePoints()){
  for(const i of [0,out.length-1]){
   poly([[...out[i],z0],[...inside[i],z0],[...inside[i],z1],[...out[i],z1]],'#adb4b8',false);
  }
- if(selectedModel==='ridge'||selectedModel==='ridgeLarge'||selectedModel==='corner'){
+ if(selectedModel==='ridge'||selectedModel==='ridgeLarge'||selectedModel==='ridgeLower'||selectedModel==='corner'){
   /* End-grain of folded sheet: draw individual thin segment caps.
      One giant self-intersecting cross-section polygon used to create
      a false gray band over the exterior of the ridge. */
@@ -381,8 +453,8 @@ function drawCorner(p=cornerProfilePoints()){
  /* From the outside, the main profile faces form one uninterrupted painted
     sheet (ridge and corner cover). Hem returns remain visible only inside.
     Segment caps avoid a false exterior stripe from overlapping end polygons. */
- if(selectedModel==='ridge'||selectedModel==='ridgeLarge'||selectedModel==='corner'){
-  const main=selectedModel==='corner'?cornerMainPoints():ridgeMainPoints(),ridgeColor=steelColors[selectedSteelCode];
+ if(selectedModel==='ridge'||selectedModel==='ridgeLarge'||selectedModel==='ridgeLower'||selectedModel==='corner'){
+  const main=selectedModel==='corner'?cornerMainPoints():selectedModel==='ridgeLower'?lowerRidgeMainPoints():ridgeMainPoints(),ridgeColor=steelColors[selectedSteelCode];
   for(let i=0;i<main.length-1;i++){
    const pa=main[i],pb=main[i+1],dx=pb[0]-pa[0],dy=pb[1]-pa[1],d=Math.hypot(dx,dy)||1;
    const nx=-dy/d,ny=dx/d;
@@ -399,7 +471,7 @@ function drawCorner(p=cornerProfilePoints()){
 function draw(){
  renderDiagram();
  const w=canvas.clientWidth,h=canvas.clientHeight;
- ctx.clearRect(0,0,w,h);if(!w||!h)return;if(selectedModel==='corner'||selectedModel==='ridge'||selectedModel==='ridgeLarge'){drawCorner(selectedModel==='corner'?cornerProfilePoints():ridgeProfilePoints());return;}
+ ctx.clearRect(0,0,w,h);if(!w||!h)return;if(selectedModel==='corner'||selectedModel==='ridge'||selectedModel==='ridgeLarge'||selectedModel==='ridgeLower'){drawCorner(selectedModel==='corner'?cornerProfilePoints():selectedModel==='ridgeLower'?lowerRidgeProfilePoints():ridgeProfilePoints());return;}
  const {width:W,left:L,right:R,length:D,thickness:T,hem:H}=values;
  const scale=380/Math.max(W,L,R,D),x0=-W*scale/2,x1=W*scale/2,z0=-D*scale/2,z1=D*scale/2;
  const l=L*scale,r=R*scale;
