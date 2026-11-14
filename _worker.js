@@ -31,7 +31,9 @@ export default {
  async fetch(request,env){
   const u=new URL(request.url),p=u.pathname,m=request.method,db=env.ACCESS_DB;
   try{
-   if(!db||typeof env.ADMIN_PASSWORD!=='string'||env.ADMIN_PASSWORD.length<14)return page('설정 대기','<div class="kicker">YOUNGHWA · STAFF ACCESS</div><h1>관리자 설정 중</h1><p>직원 접속 시스템 설정이 완료되지 않아 사이트를 잠시 잠갔습니다.</p>');
+   if(!db)return page('설정 점검','<div class="kicker">YOUNGHWA · STAFF ACCESS</div><h1>데이터베이스 연결 확인 필요</h1><p>Production의 ACCESS_DB가 배포에 반영되지 않았습니다.</p>');
+   if(typeof env.ADMIN_PASSWORD!=='string')return page('설정 점검','<div class="kicker">YOUNGHWA · STAFF ACCESS</div><h1>비밀번호 설정 반영 확인 필요</h1><p>Production의 ADMIN_PASSWORD Secret이 배포에 반영되지 않았습니다.</p>');
+   if(env.ADMIN_PASSWORD.length<14)return page('설정 점검','<div class="kicker">YOUNGHWA · STAFF ACCESS</div><h1>관리자 비밀번호 길이 확인</h1><p>등록된 관리자 비밀번호가 최소 14자 조건을 충족하지 않습니다. Cloudflare에서 14자 이상으로 변경하고 재배포하세요. 비밀번호를 채팅에 보내지 마세요.</p>');
    await setup(db);
    if(p==='/access'&&m==='GET')return accessPage();
    if(p==='/admin'&&m==='GET')return adminPage();
