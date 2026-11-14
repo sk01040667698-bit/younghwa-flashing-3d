@@ -94,7 +94,7 @@ export default {
     const u2=new URL('/index.html',u.origin);
     const r=await env.ASSETS.fetch(new Request(u2.toString(),{method:'GET'}));
     const html=await r.text();
-    const versions=[...new Set(html.match(/v3\\.\\d{2}/g)||[])];
+    const versions=[...new Set(html.match(/v3\.\d{2}/g)||[])];
     return json({workerBuild:'diagnostic-2026-11-14',assetHttpStatus:r.status,assetSize:html.length,assetVersions:versions,rootHtml:html.includes('flashingCatalog'),hasInternalAngle:html.includes('오른쪽 사선 내각'),assetsContentType:r.headers.get('content-type')||''});
    }
    if(p.startsWith('/api/'))return fail('없는 경로',404);
