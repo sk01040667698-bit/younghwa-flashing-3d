@@ -147,7 +147,7 @@ function renderDiagram(){
  </svg>`;
 }
 function drawingSVG(){const svg=document.querySelector('#sectionDrawing svg');if(!svg)throw Error('도면이 준비되지 않았습니다.');const clone=svg.cloneNode(true);clone.setAttribute('xmlns','http://www.w3.org/2000/svg');clone.setAttribute('width','1200');clone.setAttribute('height',String(svg.viewBox.baseVal.height*4));const bg=document.createElementNS('http://www.w3.org/2000/svg','rect');bg.setAttribute('width','300');bg.setAttribute('height',String(svg.viewBox.baseVal.height));bg.setAttribute('fill','#ffffff');clone.insertBefore(bg,clone.firstChild);return new XMLSerializer().serializeToString(clone)}
-function drawingFilename(ext){return (selectedModel==='corner'?'Corner_Cover':selectedModel==='zincOuter'?'Zinc_BASE_Outside':selectedModel==='zinc'?'Zinc_BASE_Inside':'CS_Ubar')+'_A'+values.width+'_L'+values.left+'_R'+values.right+(selectedModel==='zincOuter'?'_LIP'+values.lip:'')+'_LEN'+values.length+'_COLOR'+(selectedModel==='cs'?selectedSteelCode:'ZINC')+(selectedModel==='zinc'?'':'_H'+values.hem)+'.'+ext}
+function drawingFilename(ext){if(selectedModel==='corner')return 'Corner_Cover_'+[1,2,3,4,5,6].map(i=>values['corner'+i]).join('-')+'_LEN'+values.length+'_COLOR'+selectedSteelCode+'.'+ext;return (selectedModel==='zincOuter'?'Zinc_BASE_Outside':selectedModel==='zinc'?'Zinc_BASE_Inside':'CS_Ubar')+'_A'+values.width+'_L'+values.left+'_R'+values.right+(selectedModel==='zincOuter'?'_LIP'+values.lip:'')+'_LEN'+values.length+'_COLOR'+(selectedModel==='cs'?selectedSteelCode:'ZINC')+(selectedModel==='cs'?'_H'+values.hem:'')+'.'+ext}
 const pngDialog=document.getElementById('pngPreviewDialog');
 document.getElementById('closePngPreview').addEventListener('click',()=>pngDialog.close());
 pngDialog.addEventListener('click',e=>{if(e.target===pngDialog)pngDialog.close()});
@@ -202,9 +202,10 @@ function drawCorner(){
   poly([[...inside[i],z0],[...inside[i+1],z0],[...inside[i+1],z1],[...inside[i],z1]],'#777777',false);
  }
  const border=out.concat([...inside].reverse());
- for(let i=0;i<border.length;i++){
-  const next=(i+1)%border.length;
-  poly([[...border[i],z0],[...border[next],z0],[...border[next],z1],[...border[i],z1]],steelColors[selectedSteelCode],false);
+ /* Only the two exposed sheet ends need connecting end-strip faces;
+    longitudinal faces already supply the two different surface colors. */
+ for(const i of [0,out.length-1]){
+  poly([[...out[i],z0],[...inside[i],z0],[...inside[i],z1],[...out[i],z1]],'#adb4b8',false);
  }
  poly(border.map(q=>[...q,z0]),'#adb4b8');
  poly(border.map(q=>[...q,z1]),'#adb4b8');
