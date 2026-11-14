@@ -295,7 +295,59 @@ function renderRidgeDiagram(){
   <text x="32" y="312">강판 두께 : ${v.thickness} mm</text>
  </g></svg>`;
 }
+function gutterProfilePoints(){
+ const v=values,a=v.gutterRightAngle*Math.PI/180;
+ const fw=v.gutterFoldWidth,fh=v.gutterFoldHeight,L=v.gutterLeftHeight,W=v.gutterWidth,R=v.gutterRightHeight,S=v.gutterRightSlope;
+ /* One continuous sheet: left 20mm internal return, top 20mm fold,
+    100mm left wall, 70mm floor, 50mm right wall, 35mm outward flare. */
+ return [[fw,L],[fw,L+fh],[0,L+fh],[0,L],[0,0],[W,0],[W,R],
+  [W+S*Math.cos(a),R+S*Math.sin(a)]];
+}
+function gutterBodyPoints(){
+ const p=gutterProfilePoints();return p.slice(3);
+}
+function renderGutterDiagram(){
+ const p=gutterProfilePoints(),v=values,xs=p.map(a=>a[0]),ys=p.map(a=>a[1]);
+ const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+ const sc=Math.min(183/Math.max(1,maxX-minX),139/Math.max(1,maxY-minY));
+ const ox=(300-(maxX-minX)*sc)/2;
+ const X=q=>ox+(q[0]-minX)*sc,Y=q=>201-(q[1]-minY)*sc;
+ const at=i=>[X(p[i]),Y(p[i])],fmt=n=>Number(n.toFixed(2));
+ const path=p.map((q,i)=>(i?'L ':'M ')+fmt(X(q))+' '+fmt(Y(q))).join(' ');
+ const nums=[v.gutterFoldHeight,v.gutterFoldWidth,v.gutterFoldHeight,v.gutterLeftHeight,v.gutterWidth,v.gutterRightHeight,v.gutterRightSlope];
+ /* The left hem has only two measured segments: the short interior return
+    and top fold. Keep labels on those segments and omit the short
+    overlapping wall transition so the viewer sees exactly 20+20. */
+ const labels=[
+  [0,v.gutterFoldHeight,16,1],
+  [1,v.gutterFoldWidth,0,-13],
+  [3,v.gutterLeftHeight,-18,4],
+  [4,v.gutterWidth,0,20],
+  [5,v.gutterRightHeight,17,4],
+  [6,v.gutterRightSlope,12,-12]
+ ].map(([i,value,dx,dy])=>{
+  const a=at(i),b=at(i+1);
+  return '<text x="'+fmt((a[0]+b[0])/2+dx)+'" y="'+fmt((a[1]+b[1])/2+dy)+'">'+value+'</text>';
+ }).join('');
+ document.getElementById('sectionDrawing').innerHTML=`
+ <svg viewBox="0 0 300 340" xmlns="http://www.w3.org/2000/svg" aria-label="처마홈통 70 단면. 바닥 ${v.gutterWidth}, 왼쪽 벽 ${v.gutterLeftHeight}, 왼쪽 안쪽 접힘 가로 ${v.gutterFoldWidth} 세로 ${v.gutterFoldHeight}, 오른쪽 벽 ${v.gutterRightHeight}, 사선 ${v.gutterRightSlope} 밀리미터">
+ <g fill="none" stroke="#30363b" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+  <path d="${path}"/>
+ </g>
+ <g fill="#304657" font-family="Arial,'Malgun Gothic',sans-serif" font-size="13" font-weight="700" text-anchor="middle">${labels}</g>
+ <g fill="#465d6c" font-family="Arial,'Malgun Gothic',sans-serif" font-size="11" font-weight="700">
+  <text x="10" y="18">왼쪽 상단 안쪽 접힘</text>
+ </g>
+ <path d="M 19 252 V 327" stroke="#3f6073" stroke-width="3" stroke-linecap="round"/>
+ <g fill="#263e4d" font-family="Arial,'Malgun Gothic',sans-serif" font-size="15" font-weight="700">
+  <text x="32" y="272">제품 길이 : ${v.length} mm</text>
+  <text x="32" y="296">색상코드 : ${selectedSteelCode}</text>
+  <text x="32" y="320">강판 두께 : ${v.thickness} mm</text>
+ </g>
+ </svg>`;
+}
 function renderDiagram(){
+ if(selectedModel==='gutter70'){renderGutterDiagram();return;}
  if(selectedModel==='ridgeLower'){renderLowerRidgeDiagram();return;}
  if(selectedModel==='ridge'||selectedModel==='ridgeLarge'){renderRidgeDiagram();return;}
 
@@ -432,7 +484,7 @@ function drawCorner(p=cornerProfilePoints()){
  for(const i of [0,out.length-1]){
   poly([[...out[i],z0],[...inside[i],z0],[...inside[i],z1],[...out[i],z1]],'#adb4b8',false);
  }
- if(selectedModel==='ridge'||selectedModel==='ridgeLarge'||selectedModel==='ridgeLower'||selectedModel==='corner'){
+ if(selectedModel==='ridge'||selectedModel==='ridgeLarge'||selectedModel==='ridgeLower'||selectedModel==='corner'||selectedModel==='gutter70'){
   /* End-grain of folded sheet: draw individual thin segment caps.
      One giant self-intersecting cross-section polygon used to create
      a false gray band over the exterior of the ridge. */
@@ -453,8 +505,8 @@ function drawCorner(p=cornerProfilePoints()){
  /* From the outside, the main profile faces form one uninterrupted painted
     sheet (ridge and corner cover). Hem returns remain visible only inside.
     Segment caps avoid a false exterior stripe from overlapping end polygons. */
- if(selectedModel==='ridge'||selectedModel==='ridgeLarge'||selectedModel==='ridgeLower'||selectedModel==='corner'){
-  const main=selectedModel==='corner'?cornerMainPoints():selectedModel==='ridgeLower'?lowerRidgeMainPoints():ridgeMainPoints(),ridgeColor=steelColors[selectedSteelCode];
+ if(selectedModel==='ridge'||selectedModel==='ridgeLarge'||selectedModel==='ridgeLower'||selectedModel==='corner'||selectedModel==='gutter70'){
+  const main=selectedModel==='gutter70'?gutterBodyPoints():selectedModel==='corner'?cornerMainPoints():selectedModel==='ridgeLower'?lowerRidgeMainPoints():ridgeMainPoints(),ridgeColor=steelColors[selectedSteelCode];
   for(let i=0;i<main.length-1;i++){
    const pa=main[i],pb=main[i+1],dx=pb[0]-pa[0],dy=pb[1]-pa[1],d=Math.hypot(dx,dy)||1;
    const nx=-dy/d,ny=dx/d;
@@ -503,7 +555,7 @@ function drawCorner(p=cornerProfilePoints()){
 function draw(){
  renderDiagram();
  const w=canvas.clientWidth,h=canvas.clientHeight;
- ctx.clearRect(0,0,w,h);if(!w||!h)return;if(selectedModel==='corner'||selectedModel==='ridge'||selectedModel==='ridgeLarge'||selectedModel==='ridgeLower'){drawCorner(selectedModel==='corner'?cornerProfilePoints():selectedModel==='ridgeLower'?lowerRidgeProfilePoints():ridgeProfilePoints());return;}
+ ctx.clearRect(0,0,w,h);if(!w||!h)return;if(selectedModel==='corner'||selectedModel==='ridge'||selectedModel==='ridgeLarge'||selectedModel==='ridgeLower'||selectedModel==='gutter70'){drawCorner(selectedModel==='gutter70'?gutterProfilePoints():selectedModel==='corner'?cornerProfilePoints():selectedModel==='ridgeLower'?lowerRidgeProfilePoints():ridgeProfilePoints());return;}
  const {width:W,left:L,right:R,length:D,thickness:T,hem:H}=values;
  const scale=380/Math.max(W,L,R,D),x0=-W*scale/2,x1=W*scale/2,z0=-D*scale/2,z1=D*scale/2;
  const l=L*scale,r=R*scale;
