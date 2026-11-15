@@ -1857,7 +1857,7 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
  setEnabled(enabled);
 })();
 </script><section id="pansooniChat" class="pansooni-chat" aria-label="판순이 제품 정보 챗봇" hidden>
-<div class="pansooni-chat-head"><div><strong>🌱 판순이 제품 도우미</strong><small id="pansooniChatMode">사이트 검색형 · 생성형 AI 연결 준비 중</small></div><button id="pansooniChatClose" type="button" aria-label="채팅창 닫기">×</button></div>
+<div class="pansooni-chat-head"><div><strong>🌱 판순이 제품 도우미</strong><small id="pansooniChatMode">현재 3D 사이트만 검색 · AI 연결 준비 중</small></div><button id="pansooniChatClose" type="button" aria-label="채팅창 닫기">×</button></div>
 <div id="pansooniChatMessages" class="pansooni-chat-messages" role="log" aria-live="polite"></div>
 <div class="pansooni-chat-chips">
 <button type="button" data-pansooni-question="어떤 제품이 있어?">제품 목록</button>
@@ -1866,7 +1866,7 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
 <button type="button" data-pansooni-question="PNG 이미지 저장 방법">PNG 저장</button>
 </div>
 <form id="pansooniChatForm" class="pansooni-chat-form"><input id="pansooniChatInput" type="text" maxlength="300" autocomplete="off" aria-label="제품 정보 질문" placeholder="제품·규격·사용법을 자유롭게 질문하세요"><button type="submit">보내기</button></form>
-<div class="pansooni-chat-limit">공개된 3D 작업실 정보만 답변합니다. 회사 기밀·개인정보는 입력하지 마세요.</div>
+<div class="pansooni-chat-limit">이 3D 사이트에 등록된 공개 정보만 안내합니다. 회사 기밀·개인정보는 입력하지 마세요.</div>
 </section><script>
 /* Optional Cloudflare Workers AI backend. When the endpoint is not configured,
    free local FAQ stays functional; never label the fallback as generative AI. */
@@ -1881,7 +1881,7 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
    ?window.PANSOONI_AI_ENDPOINT.trim().replace(/\/+$/,''):'';
  const history=[];
  let waiting=false;
- modeLabel.textContent=aiEndpoint?'생성형 AI 연결 가능 · 공개 제품정보만':'사이트 검색형 · 생성형 AI 연결 준비 중';
+ modeLabel.textContent=aiEndpoint?'생성형 AI 연결 가능 · 현재 3D 사이트만':'현재 3D 사이트만 검색 · AI 연결 준비 중';
  const normalize=s=>String(s||'').toLowerCase().replace(/\s+/g,'').replace(/[\u2010-\u2015]/g,'-').replace(/\//g,'').replace(/[()·.,!?]/g,'');
  const catalog=[
   {label:'C/S U바(ㄷ자)',keys:['csu바','csu','u바','ㄷ자'],details:'패널 두께 50T·75T·100T 선택 가능. 제품분류에서 C/S U바(ㄷ자)를 누르고 패널 두께를 선택하세요.'},
@@ -1946,7 +1946,7 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
    const data=await result.json();
    if(!result.ok||typeof data.answer!=='string'||!data.answer.trim())throw Error(data.message||data.error||'AI 답변을 받을 수 없습니다.');
    reply.textContent=data.answer;
-   modeLabel.textContent='생성형 AI 연결됨 · 공개 제품자료만';
+   modeLabel.textContent='생성형 AI 연결됨 · 현재 3D 사이트만';
    history.push({role:'user',content:q},{role:'assistant',content:data.answer.slice(0,600)});
   }catch(err){
    const fallback=answer(q);
