@@ -108,10 +108,12 @@ export default {
     if(typeof x.password!=='string'||!equal(await digest(x.password),await digest(env.ADMIN_PASSWORD))){
      const n=r&&now-r.started<900000?r.count+1:1,at=r&&now-r.started<900000?r.started:now;
      await db.prepare('INSERT INTO yh_login(ip,count,started) VALUES(?,?,?) ON CONFLICT(ip) DO UPDATE SET count=excluded.count,started=excluded.started').bind(ip,n,at).run();
+     await audit(db,auditAdmin,'login_fail','로그인 실패');
      return fail('관리자 비밀번호가 올바르지 않습니다',401);
     }
     await db.prepare('DELETE FROM yh_login WHERE ip=?').bind(ip).run();
     phase='LOGIN_SESSION';
+    await audit(db,auditAdmin,'login_ok','로그인 성공');
     const exp=String(now+28800000);return setCookie(json({ok:true}),'yh_admin',exp+'.'+await hmac(exp,env.ADMIN_PASSWORD),28800);
    }
    if(p==='/api/admin/logout'&&m==='POST'){if(!originOK(request))return fail('잘못된 요청',403);return setCookie(json({ok:true}),'yh_admin','',0)}
@@ -127,7 +129,17 @@ export default {
     if(typeof x.id!=='string'||!/^[a-f0-9]{64}$/.test(x.id)||!['approve','deny','delete'].includes(x.action))return fail('잘못된 요청');
     if(x.action==='delete')await db.prepare('DELETE FROM yh_browsers WHERE id=?').bind(x.id).run();
     else await db.prepare('UPDATE yh_browsers SET status=? WHERE id=?').bind(x.action==='approve'?'approved':'denied',x.id).run();
+    await audit(db,auditAdmin,'device_action',x.action);
     return json({ok:true});
+   }
+   if(p==='/api/admin/activity'&&m==='GET'){
+    if(!authorized)return fail('관리자 권한이 필요합니다',401);
+    phase='ADMIN_AUDIT';
+    const cutoff=new Date(Date.now()-30*86400000).toISOString();
+    const results=await db.prepare("SELECT at,actor,department,device,kind,detail FROM yh_activity_log WHERE at>=? ORDER BY id DESC LIMIT 200").bind(cutoff).all();
+    const totals=await db.prepare("SELECT kind,COUNT(*) AS amount FROM yh_activity_log WHERE at>=? GROUP BY kind").bind(cutoff).all();
+    const counts=Object.fromEntries((totals.results||[]).map(x=>[x.kind,Number(x.amount)||0]));
+    return json({retentionDays:30,total:Object.values(counts).reduce((a,b)=>a+b,0),counts,events:results.results||[]});
    }
    if((p==='/api/admin/version'||p==='/api/version')&&m==='GET'){
     /* Read-only version information; no login required, no protected
@@ -143,26 +155,37 @@ export default {
    // Apply the SAME employee approval gate as the protected site.
    if(p==='/api/chat'&&(m==='GET'||m==='POST')){
     phase='PANSOONI_AI_AUTH';
-    if(!authorized){
-     const approvedDevice=await browser(request,db);
-     if(!approvedDevice||approvedDevice.status!=='approved')return fail('로그인이 필요합니다',401);
-    }
+    const approvedDevice=authorized?null:await browser(request,db);
+    const actor=authorized?auditAdmin:approvedDevice;
+    if(!authorized&&(!approvedDevice||approvedDevice.status!=='approved'))return fail('로그인이 필요합니다',401);
     if(m==='GET')return json({ok:Boolean(env.AI),mode:env.AI?'generative':'faq',scope:'donghyun-3d.pages.dev'});
     if(!originOK(request))return fail('잘못된 요청',403);
-    if(!env.AI)return json({error:'ai_binding_missing',message:'Workers AI 바인딩이 필요합니다'},503);
+    if(!env.AI){await audit(db,actor,'ai_error','AI 바인딩 없음');return json({error:'ai_binding_missing',message:'Workers AI 바인딩이 필요합니다'},503)}
     phase='PANSOONI_AI_INFERENCE';
     const target=new URL(request.url);
     target.pathname='/chat';
     const proxy=new Request(target,request);
-    return pansooniAI.fetch(proxy,{...env,SITE_ORIGIN:u.origin});
+    // Log one request only, not the prompt or generated answer.
+    const minuteAgo=new Date(Date.now()-60000).toISOString();
+    try{
+     const recent=await db.prepare("SELECT COUNT(*) AS amount FROM yh_activity_log WHERE actor=? AND kind='ai_question' AND at>=?").bind(actor.name,minuteAgo).first();
+     if(Number(recent?.amount||0)>=15)await audit(db,actor,'ai_abuse','1분 동안 AI 질문 다수 (차단 없음)');
+    }catch(_){}
+    await audit(db,actor,'ai_question','질문 1회');
+    const answer=await pansooniAI.fetch(proxy,{...env,SITE_ORIGIN:u.origin});
+    if(!answer.ok)await audit(db,actor,'ai_error','HTTP '+answer.status);
+    return answer;
    }
    if(p.startsWith('/api/'))return fail('없는 경로',404);
    if(m!=='GET'&&m!=='HEAD')return fail('허용되지 않은 요청',405);
-   if(!authorized){
-    const b=await browser(request,db);
-    if(!b||b.status!=='approved')return Response.redirect(u.origin+'/access',302);
-   }
+   const approvedDevice=authorized?null:await browser(request,db);
+   if(!authorized&&(!approvedDevice||approvedDevice.status!=='approved'))return Response.redirect(u.origin+'/access',302);
    const asset=await env.ASSETS.fetch(request),h=new Headers(asset.headers);h.set('Cache-Control','private,no-store');
+   if(asset.ok&&m==='GET'){
+    const actor=authorized?auditAdmin:approvedDevice;
+    if(p==='/'||p==='/index.html')await audit(db,actor,'site_open','3D 작업실');
+    else if(/\.(?:pdf|xlsx|xls|docx|doc|pptx|ppt|zip|csv)$/i.test(p))await audit(db,actor,'file_access','파일 다운로드 요청');
+   }
    return new Response(asset.body,{status:asset.status,statusText:asset.statusText,headers:h});
   }catch(e){
    console.error('Staff access gate',p,'phase:',phase,e?.name,e?.message);
