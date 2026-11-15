@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "younghwa-pansooni-ai",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-15",
+  "workers_dev": true,
+  "ai": {"binding": "AI"},
+  "vars": {
+    "SITE_ORIGIN": "https://sk01040667698-bit.github.io"
+  },
+  "ratelimits": [
+    {"name": "GLOBAL_LIMIT", "namespace_id": "771101", "simple": {"limit": 15, "period": 60}},
+    {"name": "VISITOR_LIMIT", "namespace_id": "771102", "simple": {"limit": 4, "period": 60}}
+  ]
+}
