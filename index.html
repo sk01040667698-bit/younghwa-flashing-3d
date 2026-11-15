@@ -34,7 +34,7 @@ body.catalog-pending .drawing-area .section-drawing{visibility:hidden}
 /* v3.95: floating, draggable and resizable section inside the central 3D canvas */
 .catalog-panel{gap:0;padding:12px;overflow-y:auto}
 .catalog-scroll{flex:1 1 auto;max-height:none;min-height:0}
-.floating-drawing{position:absolute;left:16px;top:16px;width:268px;height:380px;max-width:calc(100% - 12px);max-height:calc(100% - 12px);min-width:190px;min-height:200px;resize:none;overflow:auto;overscroll-behavior:contain;z-index:10;padding:0;border:1px solid #6b8296;border-radius:11px;background:#22303c;box-shadow:0 13px 35px #0009}
+ .floating-drawing{position:fixed;left:16px;top:16px;width:268px;height:380px;max-width:calc(100% - 12px);max-height:calc(100% - 12px);min-width:190px;min-height:200px;resize:none;overflow:auto;overscroll-behavior:contain;z-index:100;padding:0;border:1px solid #6b8296;border-radius:11px;background:#22303c;box-shadow:0 13px 35px #0009}
 .floating-drawing .section-drawing{position:static;display:block;border:0;border-radius:0;background:transparent;box-shadow:none;padding:8px 10px 10px;margin:0;min-height:0}
 .floating-drawing .drawing-heading{display:none}
 .floating-drawing #sectionDrawing{min-height:0;padding:5px}
@@ -54,7 +54,7 @@ body.catalog-pending .floating-drawing,body.catalog-pending .float-show{display:
 @media(max-width:780px){
  .catalog-panel{max-height:270px;overflow:auto}
  .catalog-scroll{max-height:none;overflow:visible}
- .drawing-area.floating-drawing{position:absolute;margin:0;min-width:170px;min-height:180px;max-width:calc(100% - 12px);max-height:calc(100% - 12px)}
+ .drawing-area.floating-drawing{position:fixed;margin:0;min-width:170px;min-height:180px;max-width:calc(100% - 12px);max-height:calc(100% - 12px)}
  .floating-drawing #sectionDrawing svg{max-height:none}
  .float-toolbar{min-height:34px}
 }
@@ -1465,8 +1465,10 @@ const floatPanel=document.getElementById('floatingDrawing');
 const floatHandle=document.getElementById('floatToolbar');
 const floatShow=document.getElementById('floatShow');
 const floatMain=document.querySelector('.shell main');
+/* Move the floating section outside the clipped 3D canvas, preserving all inner controls. */
+document.body.appendChild(floatPanel);
 const clampFloat=(x,y)=>{
- const r=floatPanel.getBoundingClientRect(),W=floatMain.clientWidth,H=floatMain.clientHeight;
+ const r=floatPanel.getBoundingClientRect(),W=window.innerWidth,H=window.innerHeight;
  const maxW=Math.max(160,W-12),maxH=Math.max(170,H-12);
  if(r.width>maxW+1)floatPanel.style.width=maxW+'px';
  if(r.height>maxH+1)floatPanel.style.height=maxH+'px';
@@ -1476,16 +1478,16 @@ const clampFloat=(x,y)=>{
 };
 const positionFloatDefault=()=>{
  const mobile=window.matchMedia('(max-width:780px)').matches;
- const W=floatMain.clientWidth,H=floatMain.clientHeight;
- floatPanel.style.width=Math.min(mobile?216:268,Math.max(180,W-12))+'px';
- floatPanel.style.height=Math.min(mobile?246:380,Math.max(180,H-12))+'px';
- clampFloat(W-floatPanel.offsetWidth-14,H-floatPanel.offsetHeight-14);
+ const p=floatMain.getBoundingClientRect(),W=p.width,H=p.height;
+ floatPanel.style.width=Math.min(mobile?216:268,Math.max(180,window.innerWidth-12))+'px';
+ floatPanel.style.height=Math.min(mobile?246:380,Math.max(180,window.innerHeight-12))+'px';
+ clampFloat(p.right-floatPanel.offsetWidth-14,p.bottom-floatPanel.offsetHeight-14);
 };
 let floatMove=null;
 floatHandle.addEventListener('pointerdown',e=>{
  if(e.button!==0||e.target.closest('button'))return;
- const r=floatPanel.getBoundingClientRect(),p=floatMain.getBoundingClientRect();
- floatMove={id:e.pointerId,startX:e.clientX,startY:e.clientY,left:r.left-p.left,top:r.top-p.top};
+ const r=floatPanel.getBoundingClientRect();
+ floatMove={id:e.pointerId,startX:e.clientX,startY:e.clientY,left:r.left,top:r.top};
  floatHandle.setPointerCapture(e.pointerId);e.preventDefault();
 });
 floatHandle.addEventListener('pointermove',e=>{
@@ -1494,15 +1496,15 @@ floatHandle.addEventListener('pointermove',e=>{
 });
 /* Four independent corner grips: the opposite edges remain fixed,
    so top-left / top-right / bottom-left / bottom-right resize naturally.
-   Keep the panel within the 3D viewport. */
+   Keep the panel within the visible browser viewport. */
 let floatResize=null;
 for(const grip of floatPanel.querySelectorAll('[data-resize-corner]')){
  grip.addEventListener('pointerdown',e=>{
   if(e.button!==0)return;
-  const r=floatPanel.getBoundingClientRect(),p=floatMain.getBoundingClientRect();
+  const r=floatPanel.getBoundingClientRect();
   floatResize={id:e.pointerId,corner:grip.dataset.resizeCorner,
    startX:e.clientX,startY:e.clientY,
-   left:r.left-p.left,top:r.top-p.top,width:r.width,height:r.height};
+   left:r.left,top:r.top,width:r.width,height:r.height};
   grip.setPointerCapture(e.pointerId);
   e.stopPropagation();e.preventDefault();
  });
@@ -1510,7 +1512,7 @@ for(const grip of floatPanel.querySelectorAll('[data-resize-corner]')){
   if(!floatResize||floatResize.id!==e.pointerId)return;
   const o=floatResize,c=o.corner;
   const dx=e.clientX-o.startX,dy=e.clientY-o.startY;
-  const W=floatMain.clientWidth,H=floatMain.clientHeight;
+  const W=window.innerWidth,H=window.innerHeight;
   const minW=Math.min(190,Math.max(100,W-12)),minH=Math.min(200,Math.max(110,H-12));
   const leftEdge=c.includes('l'),topEdge=c.includes('t');
   const fixedRight=o.left+o.width,fixedBottom=o.top+o.height;
@@ -1538,28 +1540,32 @@ document.getElementById('floatHide').addEventListener('click',()=>{
 });
 floatShow.addEventListener('click',()=>{
  floatPanel.hidden=false;floatShow.hidden=true;
- const r=floatPanel.getBoundingClientRect(),p=floatMain.getBoundingClientRect();
- clampFloat(r.left-p.left,r.top-p.top);
+ const r=floatPanel.getBoundingClientRect();
+ clampFloat(r.left,r.top);
 });
 for(const [id,change] of [['floatSmaller',-32],['floatLarger',32]]){
  document.getElementById(id).addEventListener('click',()=>{
-  const r=floatPanel.getBoundingClientRect(),p=floatMain.getBoundingClientRect();
-  const maxW=Math.max(170,floatMain.clientWidth-12);
+  const r=floatPanel.getBoundingClientRect();
+  const maxW=Math.max(170,window.innerWidth-12);
   const width=Math.min(maxW,Math.max(190,r.width+change));
   const ratio=width/Math.max(1,r.width);
-  const height=Math.min(Math.max(175,floatMain.clientHeight-12),Math.max(200,r.height*ratio));
+  const height=Math.min(Math.max(175,window.innerHeight-12),Math.max(200,r.height*ratio));
   floatPanel.style.width=width+'px';floatPanel.style.height=height+'px';
-  clampFloat(r.left-p.left,r.top-p.top);
+  clampFloat(r.left,r.top);
  });
 }
 new ResizeObserver(()=>{
- const r=floatPanel.getBoundingClientRect(),p=floatMain.getBoundingClientRect();
- if(r.width&&r.height)clampFloat(r.left-p.left,r.top-p.top);
+ const r=floatPanel.getBoundingClientRect();
+ if(r.width&&r.height)clampFloat(r.left,r.top);
 }).observe(floatPanel);
 new ResizeObserver(()=>{
- const r=floatPanel.getBoundingClientRect(),p=floatMain.getBoundingClientRect();
- if(r.width&&r.height)clampFloat(r.left-p.left,r.top-p.top);
+ const r=floatPanel.getBoundingClientRect();
+ if(r.width&&r.height)clampFloat(r.left,r.top);
 }).observe(floatMain);
+window.addEventListener('resize',()=>{
+ const r=floatPanel.getBoundingClientRect();
+ if(r.width&&r.height)clampFloat(r.left,r.top);
+});
 positionFloatDefault();
 
 refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
