@@ -32,6 +32,7 @@ async function setup(db){
  await db.prepare("CREATE TABLE IF NOT EXISTS yh_private_messages(id INTEGER PRIMARY KEY AUTOINCREMENT,sender_id TEXT NOT NULL,recipient_id TEXT NOT NULL,body TEXT NOT NULL,sent_at TEXT NOT NULL,read_at TEXT)").run();
  await db.prepare("CREATE INDEX IF NOT EXISTS yh_private_inbox ON yh_private_messages(recipient_id,read_at,id)").run();
  await db.prepare("CREATE INDEX IF NOT EXISTS yh_private_thread ON yh_private_messages(sender_id,recipient_id,id)").run();
+ await db.prepare("CREATE TABLE IF NOT EXISTS yh_messenger_presence(device_id TEXT PRIMARY KEY,last_seen INTEGER NOT NULL)").run();
  schemaInitialized=true;
 }
 async function browser(r,db){const token=cookie(r,'yh_device');return /^[a-f0-9]{64}$/.test(token)?db.prepare('SELECT * FROM yh_browsers WHERE id=?').bind(await digest(token)).first():null}
@@ -156,11 +157,21 @@ export default {
      const found=await db.prepare("SELECT id FROM yh_browsers WHERE id=? AND status='approved'").bind(peer).first();
      return Boolean(found);
     };
+    if(p==='/api/messenger/presence'&&m==='POST'){
+     if(!originOK(request))return fail('잘못된 요청입니다',403);
+     // A heartbeat means this approved browser is actively displaying the site.
+     // No IP addresses or private message content are stored.
+     const now=Date.now();
+     await db.prepare("INSERT INTO yh_messenger_presence(device_id,last_seen) VALUES(?,?) ON CONFLICT(device_id) DO UPDATE SET last_seen=excluded.last_seen").bind(myId,now).run();
+     return json({ok:true});
+    }
     if(p==='/api/messenger/contacts'&&m==='GET'){
      const list=await db.prepare("SELECT id,name,department,pc FROM yh_browsers WHERE status='approved' ORDER BY name,department,pc LIMIT 300").all();
-     const contacts=(list.results||[]).filter(x=>x.id!==myId).map(x=>({id:x.id,name:x.name,department:x.department,pc:x.pc}));
-     if(myId!=='admin')contacts.unshift({id:'admin',name:'관리자',department:'관리',pc:'관리자 계정'});
-     return json({me:{id:myId,name:me.name,department:me.department},contacts});
+     const recent=await db.prepare("SELECT device_id,last_seen FROM yh_messenger_presence WHERE last_seen>=? LIMIT 400").bind(Date.now()-75000).all();
+     const online=new Set((recent.results||[]).map(x=>x.device_id));
+     const contacts=(list.results||[]).filter(x=>x.id!==myId).map(x=>({id:x.id,name:x.name,department:x.department,pc:x.pc,online:online.has(x.id)}));
+     if(myId!=='admin')contacts.unshift({id:'admin',name:'관리자',department:'관리',pc:'관리자 계정',online:online.has('admin')});
+     return json({me:{id:myId,name:me.name,department:me.department},contacts,onlineThresholdSeconds:75});
     }
     if(p==='/api/messenger/unread'&&m==='GET'){
      const totals=await db.prepare("SELECT sender_id AS sender,COUNT(*) AS count FROM yh_private_messages WHERE recipient_id=? AND read_at IS NULL GROUP BY sender_id LIMIT 300").bind(myId).all();
