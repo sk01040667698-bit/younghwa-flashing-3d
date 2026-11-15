@@ -1623,35 +1623,40 @@ window.addEventListener('resize',()=>{
 positionFloatDefault();
 
 refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
-</script><img class="pansooni-fire-mascot" src="assets/pansooni-walk.webp" alt="걷다가 불을 뿜는 판순이" width="108" height="108" draggable="false"><script>
-/* Transparent WebP mascot: optional, user-controlled and paused when hidden. */
+</script><img class="pansooni-fire-mascot" src="assets/pansooni-dance.webp" alt="좌우로 춤추다가 불을 뿜는 판순이" width="108" height="108" draggable="false"><script>
+/* Dancing Pansooni: short side-steps, occasional fire, user ON/OFF preserved. */
 (function(){
  const mascot=document.querySelector('.pansooni-fire-mascot');
  const toggle=document.getElementById('pansooniToggle');
  const label=document.getElementById('pansooniToggleLabel');
  if(!mascot||!toggle||!label)return;
  const key='younghwa-pansooni-visible';
- const walkSrc=new URL('assets/pansooni-walk.webp',document.baseURI).href;
+ const danceSrc=new URL('assets/pansooni-dance.webp',document.baseURI).href;
  const fireSrc=new URL('assets/pansooni-fire.webp',document.baseURI).href;
  const reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
- let enabled=true,x=16,dir=1,mode='walk',distance=0,elapsed=0,last=0,stopped=false;
+ let enabled=true,x=0,dir=-1,mode='dance',elapsed=0,danceElapsed=0,last=0,stopped=false;
  let timer=0,raf=0;
  try{enabled=localStorage.getItem(key)!=='off'}catch(_){}
+ function zone(){
+  const width=window.innerWidth;
+  const mascotWidth=width<=780?80:110;
+  const max=Math.max(8,width-mascotWidth-12);
+  const span=Math.min(width<=780?95:165,Math.max(0,max-10));
+  return {left:max-span,right:max};
+ }
  function stopLoop(){
   if(timer){clearTimeout(timer);timer=0}
   if(raf){cancelAnimationFrame(raf);raf=0}
   last=0;
  }
  function schedule(){
-  if(!enabled)return;
-  timer=setTimeout(()=>{
-   timer=0;
-   if(enabled)raf=requestAnimationFrame(t=>{raf=0;frame(t)});
-  },64);
+  if(!enabled||document.hidden)return;
+  timer=setTimeout(()=>{timer=0;if(enabled&&!document.hidden)
+   raf=requestAnimationFrame(t=>{raf=0;frame(t)})},64);
  }
- function enterWalk(){
-  mode='walk';elapsed=0;distance=0;
-  mascot.src=walkSrc;
+ function enterDance(){
+  mode='dance';elapsed=0;danceElapsed=0;
+  mascot.src=danceSrc;
   mascot.classList.add('pansooni-walking');
  }
  function enterFire(){
@@ -1672,35 +1677,43 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
    mascot.removeAttribute('src');
    return;
   }
-  stopped=false;
-  enterWalk();
-  raf=requestAnimationFrame(t=>{raf=0;frame(t)});
+  const limits=zone();
+  x=limits.right;dir=-1;stopped=false;
+  enterDance();
+  if(!document.hidden)raf=requestAnimationFrame(t=>{raf=0;frame(t)});
  }
  function frame(t){
-  if(!enabled)return;
+  if(!enabled||document.hidden)return;
   if(!last)last=t;
   const dt=Math.min(80,t-last);last=t;
-  const maxX=Math.max(8,window.innerWidth-(window.innerWidth<=780?80:110)-8);
+  const limits=zone();
+  x=Math.max(limits.left,Math.min(x,limits.right));
   if(reduced.matches){
    mascot.classList.remove('pansooni-walking');
-   mascot.style.transform='translate3d('+Math.round(maxX)+'px,0,0)';
-   if(!stopped){stopped=true;mascot.src=walkSrc}
+   mascot.style.transform='translate3d('+Math.round(limits.right)+'px,0,0)';
+   if(!stopped){stopped=true;mascot.src=danceSrc}
   }else{
    stopped=false;
    if(!document.body.classList.contains('is-rotating-3d')){
     elapsed+=dt;
-    if(mode==='walk'){
-     x+=dir*dt*.045;distance+=dt*.045;
-     if(x>=maxX){x=maxX;dir=-1;enterFire()}
-     else if(x<=8){x=8;dir=1;enterFire()}
-     else if(distance>=Math.min(320,window.innerWidth*.42))enterFire();
-    }else if(elapsed>=1100){enterWalk()}
+    if(mode==='dance'){
+     danceElapsed+=dt;
+     x+=dir*dt*.042;
+     if(x<=limits.left){x=limits.left;dir=1}
+     if(x>=limits.right){x=limits.right;dir=-1}
+     if(danceElapsed>=9400)enterFire();
+    }else if(elapsed>=1100){enterDance()}
     mascot.style.transform='translate3d('+Math.round(x)+'px,0,0) scaleX('+dir+')';
    }
   }
   schedule();
  }
  toggle.addEventListener('click',()=>setEnabled(!enabled));
+ document.addEventListener('visibilitychange',()=>{
+  if(document.hidden)stopLoop();
+  else if(enabled){last=0;raf=requestAnimationFrame(t=>{raf=0;frame(t)})}
+ });
+ window.addEventListener('resize',()=>{const a=zone();x=Math.max(a.left,Math.min(x,a.right))});
  setEnabled(enabled);
 })();
 </script></body></html>
