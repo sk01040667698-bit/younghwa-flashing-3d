@@ -178,6 +178,17 @@ export default {
      const bySender=(totals.results||[]).map(x=>({sender:x.sender,count:Number(x.count)||0}));
      return json({total:bySender.reduce((acc,x)=>acc+x.count,0),bySender});
     }
+    if(p==='/api/messenger/threads'&&m==='GET'){
+     // Only messages sent or received by this authenticated browser/account.
+     // No other employee's conversations or metadata are returned.
+     const result=await db.prepare("SELECT id,sender_id,recipient_id,body,sent_at FROM yh_private_messages WHERE sender_id=? OR recipient_id=? ORDER BY id DESC LIMIT 1000").bind(myId,myId).all();
+     const byPeer=new Map();
+     for(const message of result.results||[]){
+      const other=message.sender_id===myId?message.recipient_id:message.sender_id;
+      if(!byPeer.has(other))byPeer.set(other,{peer:other,lastBody:message.body.slice(0,120),lastAt:message.sent_at,sentByMe:message.sender_id===myId});
+     }
+     return json({threads:[...byPeer.values()].slice(0,100)});
+    }
     if(p==='/api/messenger/messages'&&m==='GET'){
      const peer=u.searchParams.get('peer');
      if(!await peerOK(peer))return fail('대화할 수 없는 직원입니다',403);
