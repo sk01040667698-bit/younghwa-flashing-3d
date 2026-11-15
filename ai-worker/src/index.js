@@ -99,14 +99,21 @@ export default {
   try{
    const generated=await env.AI.run(MODEL,{
     messages:[{role:"system",content:system},...history,{role:"user",content:question}],
-    max_tokens:350,temperature:0.2
+    max_completion_tokens:350,temperature:0.2,
+    chat_template_kwargs:{enable_thinking:false}
    });
    const answer=textReplyFromModel(generated).trim();
    if(!answer)return json({error:"empty_response"},502,allowed);
    return json({answer:answer.slice(0,1300),mode:"ai",sources:docs.map(d=>d.title)},200,allowed);
-  }catch(_){
-   // Never log the user's question or customer data.
-   return json({error:"ai_unavailable",message:"무료 AI가 현재 응답하지 않습니다. 기존 사이트 검색형 답변을 이용해 주세요."},503,allowed);
+  }catch(e){
+   // No prompt, documents, or customer data are logged or returned.
+   // A short error class helps distinguish quota, unsupported model and transient errors.
+   const code=Number(e?.status||e?.code||0);
+   const message=String(e?.message||"").slice(0,320);
+   const category=code===429||/quota|limit|neurons|exceeded|credits/i.test(message)?'quota_or_rate_limit':
+    /model|unsupported|not found|invalid model/i.test(message)?'model_unavailable':
+    /timeout|timed out|deadline/i.test(message)?'timeout':'inference_error';
+   return json({error:category,message:"생성형 AI 응답 실패. 기존 사이트 정보로 안내합니다.",status:code||undefined},503,allowed);
   }
  }
 };
