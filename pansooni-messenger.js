@@ -255,12 +255,100 @@ async function heartbeat(){
  if(document.hidden)return;
  try{await request('/api/messenger/presence',{method:'POST',headers:{'content-type':'application/json'},body:'{}'})}catch(_){}
 }
+function renderGroupChoices(){
+ groupMembers.replaceChildren();
+ const q=groupSearch.value.trim().toLocaleLowerCase('ko-KR');
+ const current=new Set(modalPurpose==='invite'?groupParticipants:[]);
+ const candidates=contacts.filter(x=>!current.has(x.id)&&
+  (!q||(x.name+' '+x.department).toLocaleLowerCase('ko-KR').includes(q)));
+ if(!candidates.length){
+  const empty=document.createElement('div');empty.className='yh-list-empty';
+  empty.textContent='초대할 수 있는 직원이 없습니다.';groupMembers.append(empty);return;
+ }
+ for(const c of candidates){
+  const row=document.createElement('label');row.className='yh-group-option';
+  const check=document.createElement('input');check.type='checkbox';check.value=c.id;
+  check.checked=selectedIds.has(c.id);
+  check.addEventListener('change',()=>{if(check.checked)selectedIds.add(c.id);else selectedIds.delete(c.id)});
+  const text=document.createElement('span');text.textContent=(c.online?'🟢 ':'⚪ ')+c.name+' · '+c.department;
+  row.append(check,text);groupMembers.append(row);
+ }
+}
+let selectedIds=new Set();
+function openGroupModal(purpose){
+ modalPurpose=purpose;selectedIds=new Set();
+ groupName.value='';groupSearch.value='';groupStatus.textContent='';
+ if(purpose==='from-private'&&peer)selectedIds.add(peer);
+ if(purpose==='invite'){
+  groupName.value=byGroup(groupId)?.name||'';
+  groupName.disabled=true;
+  groupConfirm.textContent='선택한 친구 초대';
+ }else{
+  groupName.disabled=false;
+  groupConfirm.textContent='새 단체 채팅방 만들기';
+ }
+ groupModal.hidden=false;renderGroupChoices();groupSearch.focus();
+}
+function closeGroupModal(){groupModal.hidden=true;selectedIds.clear()}
+createGroup.addEventListener('click',()=>openGroupModal('create'));
+invite.addEventListener('click',()=>openGroupModal(activeGroup()?'invite':'from-private'));
+groupDismiss.addEventListener('click',closeGroupModal);
+groupSearch.addEventListener('input',renderGroupChoices);
+groupModal.addEventListener('pointerdown',e=>{if(e.target===groupModal)closeGroupModal()});
+groupConfirm.addEventListener('click',async()=>{
+ const members=[...selectedIds];
+ if(modalPurpose!=='invite'&&members.length<2){groupStatus.textContent='단체방은 본인을 제외하고 2명 이상 선택해야 합니다.';return}
+ if(modalPurpose==='invite'&&!members.length){groupStatus.textContent='초대할 직원을 선택해 주세요.';return}
+ groupConfirm.disabled=true;
+ try{
+  if(modalPurpose==='invite'){
+   await request('/api/messenger/group-invite',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({group:groupId,members})});
+   status.textContent=members.length+'명에게 초대가 전달됐습니다.';
+   await refreshGroups();
+   groupParticipants=byGroup(groupId)?.members||groupParticipants;
+   updateThreadHeader();
+  }else{
+   const data=await request('/api/messenger/group-create',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:groupName.value.trim(),members})});
+   await refreshGroups();setSection('chats');openGroup(data.id);
+  }
+  closeGroupModal();
+ }catch(e){groupStatus.textContent='초대/생성 실패: '+e.message}
+ finally{groupConfirm.disabled=false}
+});
+fileAttach.addEventListener('click',()=>{if(!peer&&!groupId){status.textContent='먼저 대화방을 열어 주세요.';return}fileSelect.click()});
+fileSelect.addEventListener('change',async()=>{
+ const f=fileSelect.files?.[0];fileSelect.value='';
+ if(!f)return;
+ if(!/\.(pdf|hwp|hwpx|doc|docx)$/i.test(f.name)){status.textContent='PDF·HWP·HWPX·DOC·DOCX만 첨부할 수 있습니다.';return}
+ if(f.size>10*1024*1024){status.textContent='파일 최대 크기는 10MB(10,240KB)입니다.';return}
+ if(!f.size){status.textContent='빈 파일은 첨부할 수 없습니다.';return}
+ if(!peer&&!groupId){status.textContent='대화방을 먼저 선택해 주세요.';return}
+ fileAttach.disabled=true;status.textContent='📎 '+f.name+' 업로드 중…';
+ try{
+  const kind=groupId?'group':'private',to=groupId||peer;
+  const url='/api/messenger/upload?kind='+kind+'&to='+encodeURIComponent(to);
+  const response=await fetch(url,{method:'POST',credentials:'same-origin',cache:'no-store',
+   headers:{'Content-Type':'application/octet-stream','X-YH-File-Name':encodeURIComponent(f.name)},
+   body:f
+  });
+  const body=await response.json();
+  if(!response.ok)throw Error(body.error||'파일 업로드 실패');
+  status.textContent='파일 전송 완료 · '+f.name;
+  lastSignature='';await refreshMessages();
+ }catch(e){status.textContent='파일 업로드 실패: '+e.message}
+ finally{fileAttach.disabled=false}
+});
+
 form.addEventListener('submit',async event=>{
  event.preventDefault();const body=input.value.trim();
- if(!body||busy||!peer)return;
+ if(!body||busy||(!peer&&!groupId))return;
  busy=true;send.disabled=true;
  try{
-  await request('/api/messenger/send',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({recipient:peer,body})});
+  if(groupId){
+   await request('/api/messenger/group-send',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({group:groupId,body})});
+  }else{
+   await request('/api/messenger/send',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({recipient:peer,body})});
+  }
   input.value='';lastSignature='';status.textContent='메시지를 보냈습니다.';
   await refreshMessages();
  }catch(e){status.textContent='전송 실패: '+e.message}
@@ -318,6 +406,7 @@ for(const grip of float.querySelectorAll('[data-yh-resize]')){
 window.addEventListener('resize',()=>{layout();saveGeometry();badgePosition()});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){heartbeat();refreshEverything();if(!float.hidden)refreshMessages()}});
 document.addEventListener('keydown',event=>{
+ if(event.key==='Escape'&&!groupModal.hidden){closeGroupModal();return}
  if(event.key==='Escape'&&!float.hidden&&document.activeElement!==input)hideFloating();
 });
 setInterval(badgePosition,250);
