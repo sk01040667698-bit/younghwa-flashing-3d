@@ -29,6 +29,9 @@ async function setup(db){
  await db.prepare("CREATE TABLE IF NOT EXISTS yh_activity_log(id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, actor TEXT NOT NULL, department TEXT NOT NULL, device TEXT NOT NULL, kind TEXT NOT NULL, detail TEXT NOT NULL)").run();
  await db.prepare("CREATE INDEX IF NOT EXISTS yh_activity_log_at ON yh_activity_log(at)").run();
  await db.prepare("CREATE INDEX IF NOT EXISTS yh_activity_log_kind_at ON yh_activity_log(kind,at)").run();
+ await db.prepare("CREATE TABLE IF NOT EXISTS yh_private_messages(id INTEGER PRIMARY KEY AUTOINCREMENT,sender_id TEXT NOT NULL,recipient_id TEXT NOT NULL,body TEXT NOT NULL,sent_at TEXT NOT NULL,read_at TEXT)").run();
+ await db.prepare("CREATE INDEX IF NOT EXISTS yh_private_inbox ON yh_private_messages(recipient_id,read_at,id)").run();
+ await db.prepare("CREATE INDEX IF NOT EXISTS yh_private_thread ON yh_private_messages(sender_id,recipient_id,id)").run();
  schemaInitialized=true;
 }
 async function browser(r,db){const token=cookie(r,'yh_device');return /^[a-f0-9]{64}$/.test(token)?db.prepare('SELECT * FROM yh_browsers WHERE id=?').bind(await digest(token)).first():null}
@@ -136,6 +139,57 @@ export default {
    }
    // Pansooni AI uses the existing advanced-mode Worker, not Pages Functions.
    // Apply the SAME employee approval gate as the protected site.
+
+   /* Private messenger: browser approval serves as one-time device login.
+      The server determines sender/recipient permissions; no route exposes other
+      users' message metadata, and audit logs never include private chat content. */
+   if(p.startsWith('/api/messenger/')){
+    phase='PRIVATE_MESSENGER_AUTH';
+    const device=authorized?null:await browser(request,db);
+    if(!authorized&&(!device||device.status!=='approved'))return fail('승인된 직원만 메신저를 사용할 수 있습니다',401);
+    const me=authorized?{id:'admin',name:'관리자',department:'관리',pc:'관리자 계정'}:device;
+    const myId=me.id;
+    const peerOK=async peer=>{
+     if(typeof peer!=='string'||peer===myId)return false;
+     if(peer==='admin')return true;
+     if(!/^[a-f0-9]{64}$/.test(peer))return false;
+     const found=await db.prepare("SELECT id FROM yh_browsers WHERE id=? AND status='approved'").bind(peer).first();
+     return Boolean(found);
+    };
+    if(p==='/api/messenger/contacts'&&m==='GET'){
+     const list=await db.prepare("SELECT id,name,department,pc FROM yh_browsers WHERE status='approved' ORDER BY name,department,pc LIMIT 300").all();
+     const contacts=(list.results||[]).filter(x=>x.id!==myId).map(x=>({id:x.id,name:x.name,department:x.department,pc:x.pc}));
+     if(myId!=='admin')contacts.unshift({id:'admin',name:'관리자',department:'관리',pc:'관리자 계정'});
+     return json({me:{id:myId,name:me.name,department:me.department},contacts});
+    }
+    if(p==='/api/messenger/unread'&&m==='GET'){
+     const totals=await db.prepare("SELECT sender_id AS sender,COUNT(*) AS count FROM yh_private_messages WHERE recipient_id=? AND read_at IS NULL GROUP BY sender_id LIMIT 300").bind(myId).all();
+     const bySender=(totals.results||[]).map(x=>({sender:x.sender,count:Number(x.count)||0}));
+     return json({total:bySender.reduce((acc,x)=>acc+x.count,0),bySender});
+    }
+    if(p==='/api/messenger/messages'&&m==='GET'){
+     const peer=u.searchParams.get('peer');
+     if(!await peerOK(peer))return fail('대화할 수 없는 직원입니다',403);
+     const now=new Date().toISOString();
+     // Reading a thread is the only action that marks it read.
+     await db.prepare("UPDATE yh_private_messages SET read_at=? WHERE recipient_id=? AND sender_id=? AND read_at IS NULL").bind(now,myId,peer).run();
+     const result=await db.prepare("SELECT id,sender_id AS sender,recipient_id AS recipient,body,sent_at AS sentAt,read_at AS readAt FROM yh_private_messages WHERE (sender_id=? AND recipient_id=?) OR (sender_id=? AND recipient_id=?) ORDER BY id DESC LIMIT 100").bind(myId,peer,peer,myId).all();
+     return json({peer,messages:(result.results||[]).reverse()});
+    }
+    if(p==='/api/messenger/send'&&m==='POST'){
+     if(!originOK(request))return fail('잘못된 요청입니다',403);
+     const x=await data(request);
+     if(!await peerOK(x.recipient))return fail('승인되지 않은 수신자입니다',403);
+     if(typeof x.body!=='string'||x.body.trim().length===0||x.body.length>1000)return fail('메시지는 1~1000자만 보낼 수 있습니다',400);
+     const minuteAgo=new Date(Date.now()-60000).toISOString();
+     const recent=await db.prepare("SELECT COUNT(*) AS count FROM yh_private_messages WHERE sender_id=? AND sent_at>=?").bind(myId,minuteAgo).first();
+     if(Number(recent?.count||0)>=20)return fail('메시지를 너무 빠르게 보내고 있습니다',429);
+     const now=new Date().toISOString();
+     await db.prepare("INSERT INTO yh_private_messages(sender_id,recipient_id,body,sent_at,read_at) VALUES(?,?,?,?,NULL)").bind(myId,x.recipient,x.body.trim(),now).run();
+     return json({ok:true,sentAt:now});
+    }
+    return fail('없는 경로',404);
+   }
    if(p==='/api/chat'&&(m==='GET'||m==='POST')){
     phase='PANSOONI_AI_AUTH';
     const approvedDevice=authorized?null:await browser(request,db);
