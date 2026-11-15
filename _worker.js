@@ -4,6 +4,9 @@ import pansooniAI from "./ai-worker/src/index.js";
  Bind ACCESS_DB (D1) and ADMIN_PASSWORD (encrypted environment secret).
  Fail closed if missing. Never commit credentials to GitHub. */
 const enc=new TextEncoder();
+/* Admin login remains valid for 24 hours on each browser, then requires reauthentication. */
+const ADMIN_SESSION_TTL_MS=24*60*60*1000;
+const ADMIN_SESSION_TTL_SECONDS=24*60*60;
 const H={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY'};
 const csp="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'";
 const style='*{box-sizing:border-box}body{font:16px system-ui,"Malgun Gothic",sans-serif;color:#23332c;background:#f3f7f4;margin:0}main{max-width:850px;margin:35px auto;padding:18px}.kicker{font-weight:700;letter-spacing:2px;color:#087846}h1{font-size:32px}.panel{background:#fff;border:1px solid #d8e7dc;border-radius:18px;padding:26px;margin:22px 0}label{display:block;font-weight:700;margin:14px 0 7px}input,select{font-size:16px;width:100%;padding:13px;border:1px solid #bfcec6;border-radius:9px;background:#fff;color:#23332c}button{padding:12px 17px;border:0;border-radius:9px;background:#008046;color:#fff;font-weight:700;cursor:pointer}button.danger{background:#b14b44}button.soft{background:#e2f1e7;color:#18683f}.row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.item{padding:16px 0;border-top:1px solid #e5ebe7}.sub{color:#68766e;line-height:1.7}.tag{background:#e6f3eb;border-radius:20px;padding:5px 10px;color:#387953}#notice{white-space:pre-wrap}@media(max-width:650px){h1{font-size:25px}.panel{padding:18px}}';
@@ -36,7 +39,7 @@ async function setup(db){
  schemaInitialized=true;
 }
 async function browser(r,db){const token=cookie(r,'yh_device');return /^[a-f0-9]{64}$/.test(token)?db.prepare('SELECT * FROM yh_browsers WHERE id=?').bind(await digest(token)).first():null}
-async function admin(r,secret){const pieces=cookie(r,'yh_admin').split('.');if(pieces.length!==2||!(/^\d{13}$/.test(pieces[0]))||!(/^[a-f0-9]{64}$/.test(pieces[1]))||Number(pieces[0])<Date.now()||Number(pieces[0])>Date.now()+28800000)return false;return equal(pieces[1],await hmac(pieces[0],secret))}
+async function admin(r,secret){const pieces=cookie(r,'yh_admin').split('.');if(pieces.length!==2||!(/^\d{13}$/.test(pieces[0]))||!(/^[a-f0-9]{64}$/.test(pieces[1]))||Number(pieces[0])<Date.now()||Number(pieces[0])>Date.now()+ADMIN_SESSION_TTL_MS)return false;return equal(pieces[1],await hmac(pieces[0],secret))}
 const field=(v,max)=>typeof v==='string'&&v.trim().length>0&&v.trim().length<=max&&!/[\u0000-\u001f<>]/.test(v);
 const departments=new Set(['본사','경리부','관리','생산','품질','연구소']);
 
@@ -101,7 +104,7 @@ export default {
     await db.prepare('DELETE FROM yh_login WHERE ip=?').bind(ip).run();
     phase='LOGIN_SESSION';
     await audit(db,auditAdmin,'login_ok','로그인 성공');
-    const exp=String(now+28800000);return setCookie(json({ok:true}),'yh_admin',exp+'.'+await hmac(exp,env.ADMIN_PASSWORD),28800);
+    const exp=String(now+ADMIN_SESSION_TTL_MS);return setCookie(json({ok:true}),'yh_admin',exp+'.'+await hmac(exp,env.ADMIN_PASSWORD),ADMIN_SESSION_TTL_SECONDS);
    }
    if(p==='/api/admin/logout'&&m==='POST'){if(!originOK(request))return fail('잘못된 요청',403);return setCookie(json({ok:true}),'yh_admin','',0)}
    if(p==='/api/admin/list'&&m==='GET'){
