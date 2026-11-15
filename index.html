@@ -1566,27 +1566,18 @@ window.addEventListener('resize',()=>{
 positionFloatDefault();
 
 refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
-</script><img class="pansooni-fire-mascot" src="assets/pansooni-walking-fire.gif" alt="불꽃을 뿜는 판순이" width="108" height="108" draggable="false"><script>
-/* Keep the original GIF as the fire animation. Its first visible frame is
-   frozen for walking, so fire is shown only while the mascot is stopped. */
+</script><img class="pansooni-fire-mascot" src="assets/pansooni-walk.gif" alt="걷다가 불을 뿜는 판순이" width="108" height="108" draggable="false"><script>
+/* Walking and fire are independent high-resolution transparent GIFs. */
 (function(){
  const mascot=document.querySelector('.pansooni-fire-mascot');
  if(!mascot)return;
- const fireSrc=mascot.src;
- const firstFrame=new Image();
- firstFrame.onload=()=>{
-  try{
-   const cv=document.createElement('canvas');cv.width=firstFrame.naturalWidth;cv.height=firstFrame.naturalHeight;
-   cv.getContext('2d').drawImage(firstFrame,0,0);
-   mascot.dataset.walkSrc=cv.toDataURL('image/png');
-  }catch(_){mascot.dataset.walkSrc=fireSrc}
- };
- firstFrame.src=fireSrc;
+ const walkSrc=new URL('assets/pansooni-walk.gif',document.baseURI).href;
+ const fireSrc=new URL('assets/pansooni-fire.gif',document.baseURI).href;
  let x=16,dir=1,mode='walk',distance=0,elapsed=0,last=0,stopped=false;
  const reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
  function enterWalk(){
   mode='walk';elapsed=0;distance=0;
-  mascot.src=mascot.dataset.walkSrc||fireSrc;
+  mascot.src=walkSrc;
   mascot.classList.add('pansooni-walking');
  }
  function enterFire(){
@@ -1601,7 +1592,7 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
   if(reduced.matches){
    mascot.classList.remove('pansooni-walking');
    mascot.style.transform='translate3d('+Math.round(maxX)+'px,0,0)';
-   if(!stopped){stopped=true;mascot.src=mascot.dataset.walkSrc||fireSrc}
+   if(!stopped){stopped=true;mascot.src=walkSrc}
   }else{
    stopped=false;elapsed+=dt;
    if(mode==='walk'){
@@ -1609,7 +1600,7 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
     if(x>=maxX){x=maxX;dir=-1;enterFire()}
     else if(x<=8){x=8;dir=1;enterFire()}
     else if(distance>=Math.min(320,window.innerWidth*.42))enterFire();
-   }else if(elapsed>=1450){enterWalk()}
+   }else if(elapsed>=1100){enterWalk()}
    mascot.style.transform='translate3d('+Math.round(x)+'px,0,0) scaleX('+dir+')';
   }
   requestAnimationFrame(frame);
