@@ -1877,11 +1877,25 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
  const form=document.getElementById('pansooniChatForm');
  const modeLabel=document.getElementById('pansooniChatMode');
  if(!chat||!messages||!input||!form||!modeLabel)return;
- const aiEndpoint=(typeof window.PANSOONI_AI_ENDPOINT==='string'&&/^https:\/\/[a-zA-Z0-9.-]+(?:\/[a-zA-Z0-9/_-]*)?$/.test(window.PANSOONI_AI_ENDPOINT.trim()))
-   ?window.PANSOONI_AI_ENDPOINT.trim().replace(/\/+$/,''):'';
+ const candidate=typeof window.PANSOONI_AI_ENDPOINT==='string'?window.PANSOONI_AI_ENDPOINT.trim():'';
+ const aiEndpoint=candidate==='/api'?candidate:'';
+ let aiReady=false;
+ async function checkAI(){
+  if(!aiEndpoint)return;
+  try{
+   const res=await fetch(aiEndpoint+'/chat',{method:'GET',cache:'no-store'});
+   const data=await res.json();
+   aiReady=res.ok&&data.mode==='generative'&&data.ok===true;
+   modeLabel.textContent=aiReady?'생성형 AI 연결됨 · 현재 3D 사이트만':'현재 사이트 검색형 · AI 바인딩 설정 필요';
+  }catch(_){
+   aiReady=false;
+   modeLabel.textContent='현재 사이트 검색형 · AI 서버 연결 확인 불가';
+  }
+ }
  const history=[];
  let waiting=false;
- modeLabel.textContent=aiEndpoint?'생성형 AI 연결 가능 · 현재 3D 사이트만':'현재 3D 사이트만 검색 · AI 연결 준비 중';
+ modeLabel.textContent=aiEndpoint?'생성형 AI 상태 확인 중…':'현재 3D 사이트만 검색 · AI 연결 준비 중';
+ checkAI();
  const normalize=s=>String(s||'').toLowerCase().replace(/\s+/g,'').replace(/[\u2010-\u2015]/g,'-').replace(/\//g,'').replace(/[()·.,!?]/g,'');
  const catalog=[
   {label:'C/S U바(ㄷ자)',keys:['csu바','csu','u바','ㄷ자'],details:'패널 두께 50T·75T·100T 선택 가능. 제품분류에서 C/S U바(ㄷ자)를 누르고 패널 두께를 선택하세요.'},
@@ -1924,7 +1938,7 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
   if(!q||waiting)return;
   append(q,'user');
   input.value='';
-  if(!aiEndpoint){
+  if(!aiEndpoint||!aiReady){
    const fallback=answer(q);
    append(fallback,'bot');
    history.push({role:'user',content:q},{role:'assistant',content:fallback});
@@ -1963,7 +1977,7 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
  }
  function open(){
   chat.hidden=false;
-  if(!messages.children.length)append('안녕하세요! 판순이입니다. 🌱\n공개 3D 작업실의 제품·규격·사용법을 안내해 드려요. '+(aiEndpoint?'생성형 AI로 자연스럽게 질문할 수 있어요.':'현재는 검색형이며 생성형 AI 서버 연결을 준비 중이에요.'),'bot');
+  if(!messages.children.length)append('안녕하세요! 판순이입니다. 🌱\n현재 3D 작업실에 등록된 제품·규격·사용법만 안내합니다. '+(aiReady?'생성형 AI로 질문할 수 있어요.':'AI 연결 전에는 사이트 검색형으로 답변해요.'),'bot');
   input.focus();
  }
  window.addEventListener('pansooni-open-chat',()=>{if(chat.hidden)open();else chat.hidden=true});
