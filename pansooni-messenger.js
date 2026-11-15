@@ -10,13 +10,16 @@
  const aiTab=document.getElementById('pansooniAiTab');
  const contactSelect=document.getElementById('pansooniPeerSelect');
  const contactStatus=document.getElementById('pansooniPeerStatus');
+ const presenceRow=document.getElementById('pansooniPeerPresence');
+ const presenceDot=document.getElementById('pansooniPeerPresenceDot');
+ const presenceText=document.getElementById('pansooniPeerPresenceText');
  const thread=document.getElementById('pansooniThread');
  const form=document.getElementById('pansooniMessengerForm');
  const input=document.getElementById('pansooniMessengerInput');
  const send=form?.querySelector('button[type=submit]');
  const badge=document.getElementById('pansooniUnreadBadge');
  const mascot=document.querySelector('.pansooni-fire-mascot');
- if(!chat||!panel||!messengerTab||!aiTab||!contactSelect||!thread||!form||!input||!send||!badge||!mascot)return;
+ if(!chat||!panel||!messengerTab||!aiTab||!contactSelect||!presenceRow||!presenceDot||!presenceText||!thread||!form||!input||!send||!badge||!mascot)return;
  const aiSections=[
   document.getElementById('pansooniChatMessages'),
   chat.querySelector('.pansooni-chat-chips'),
@@ -28,6 +31,44 @@
  const originHeaders={'content-type':'application/json'};
  function nameOf(id){const item=contacts.find(x=>x.id===id);return item?item.name:'직원'}
  function notice(message){contactStatus.textContent=message}
+ function showPeerPresence(){
+  const selected=contacts.find(x=>x.id===peer);
+  presenceRow.hidden=!selected;
+  if(!selected)return;
+  const online=selected.online===true;
+  presenceDot.classList.toggle('online',online);
+  presenceText.textContent=online
+   ?'접속 중 · 사이트를 열어둔 상태입니다 (읽음 여부와 별개)'
+   :'현재 미접속 · 나중에 접속하면 메시지 알림을 확인할 수 있습니다';
+ }
+ function renderContacts(){
+  for(const option of contactSelect.options){
+   if(!option.value)continue;
+   const employee=contacts.find(c=>c.id===option.value);
+   if(!employee)continue;
+   const n=unread[option.value]||0;
+   option.textContent=(employee.online?'🟢 ':'⚪ ')+employee.name+' · '+employee.department+
+    (employee.pc?' · '+employee.pc:'')+(n?' ('+n+'개 새 메시지)':'');
+  }
+  showPeerPresence();
+ }
+ async function sendHeartbeat(){
+  if(document.hidden)return;
+  try{await api('/api/messenger/presence',{method:'POST',headers:originHeaders,body:'{}'})}catch(_){}
+ }
+ async function refreshPresence(){
+  if(document.hidden||mode!=='messenger'||chat.hidden||!myId)return;
+  try{
+   const data=await api('/api/messenger/contacts');
+   const latest=new Map((data.contacts||[]).map(x=>[x.id,x]));
+   contacts=contacts.map(x=>latest.get(x.id)||{...x,online:false});
+   renderContacts();
+  }catch(_){
+   // Do not show a stale green online indicator if status is unavailable.
+   contacts=contacts.map(x=>({...x,online:false}));
+   renderContacts();
+  }
+ }
  async function api(url,init){
   const response=await fetch(url,{credentials:'same-origin',cache:'no-store',...init});
   let body;
@@ -48,13 +89,7 @@
   badge.textContent=total>99?'99+':String(total);
   badge.title='나에게 온 읽지 않은 메시지 '+total+'개';
   messengerTab.textContent='사내 메신저'+(total?' ('+total+')':'');
-  for(const item of contactSelect.options){
-   if(!item.value)continue;
-   const contact=contacts.find(x=>x.id===item.value);
-   if(!contact)continue;
-   const n=unread[item.value]||0;
-   item.textContent=contact.name+' · '+contact.department+(contact.pc?' · '+contact.pc:'')+(n?' ('+n+'개 새 메시지)':'');
-  }
+  renderContacts();
   badgePosition();
  }
  function showMode(next){
@@ -65,7 +100,7 @@
   for(const node of aiSections)node.hidden=next==='messenger';
   if(next==='messenger'){
    if(!myId)loadContacts();
-   else{loadUnread();if(peer)loadMessages();}
+   else{loadUnread();refreshPresence();if(peer)loadMessages();}
   }
  }
  async function loadContacts(){
@@ -79,13 +114,14 @@
    for(const item of contacts){
     const option=document.createElement('option');
     option.value=item.id;
-    option.textContent=item.name+' · '+item.department+(item.pc?' · '+item.pc:'');
+    option.textContent=(item.online?'🟢 ':'⚪ ')+item.name+' · '+item.department+(item.pc?' · '+item.pc:'');
     contactSelect.append(option);
    }
    if(wanted&&contacts.some(c=>c.id===wanted)){peer=wanted;contactSelect.value=peer;}
    else if(contacts.length===1){peer=contacts[0].id;contactSelect.value=peer;}
    else{peer='';contactSelect.value='';}
-   notice(contacts.length?'상대방을 선택하면 1:1 대화가 표시됩니다.':'승인된 다른 직원이 아직 없습니다.');
+   notice(contacts.length?'초록색은 사이트 접속 중, 흰색은 미접속을 뜻합니다.':'승인된 다른 직원이 아직 없습니다.');
+   showPeerPresence();
    await loadUnread();
    if(peer)await loadMessages();
   }catch(e){notice('메신저를 사용할 수 없습니다: '+e.message)}
@@ -141,6 +177,7 @@
   thread.replaceChildren();
   if(peer){notice(nameOf(peer)+'님과 1:1 대화 중');loadMessages();}
   else notice('대화할 직원을 선택해 주세요.');
+  showPeerPresence();
  });
  form.addEventListener('submit',async e=>{
   e.preventDefault();
@@ -168,7 +205,7 @@
  });
  window.addEventListener('resize',badgePosition);
  document.addEventListener('visibilitychange',()=>{
-  if(!document.hidden){loadUnread();if(mode==='messenger'&&!chat.hidden)loadMessages()}
+  if(!document.hidden){sendHeartbeat();loadUnread();if(mode==='messenger'&&!chat.hidden){refreshPresence();loadMessages()}}
  });
  // Polling without new servers: notifications arrive within about 12 s while
  // the site is open. Browser closed => no desktop push.
@@ -178,8 +215,13 @@
  setInterval(()=>{
   if(document.hidden)return;
   loadUnread();
-  if(mode==='messenger'&&!chat.hidden&&peer)loadMessages();
+  if(mode==='messenger'&&!chat.hidden){
+   refreshPresence();
+   if(peer)loadMessages();
+  }
  },12000);
+ setInterval(sendHeartbeat,30000);
  // Secure API returns only this approved user's unread counts.
  loadUnread();
+ sendHeartbeat();
 })();
