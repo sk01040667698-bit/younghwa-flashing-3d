@@ -86,7 +86,7 @@ body.catalog-pending .floating-drawing,body.catalog-pending .float-show{display:
 /* Pansooni mascot: guided walk with occasional fire burst. */
 .pansooni-fire-mascot{position:fixed;left:0;right:auto;bottom:9px;width:110px;height:110px;object-fit:contain;pointer-events:none;z-index:35;filter:drop-shadow(0 4px 7px #0006);transform-origin:50% 100%;will-change:transform}
 .pansooni-fire-mascot.pansooni-walking{animation:pansooni-step .42s ease-in-out infinite alternate}
-@keyframes pansooni-step{from{margin-bottom:0}to{margin-bottom:5px}}
+@keyframes pansooni-step{from{translate:0 0}to{translate:0 -5px}}
 @media(max-width:780px){.pansooni-fire-mascot{width:80px;height:80px;bottom:5px}}
 @media(prefers-reduced-motion:reduce){.pansooni-fire-mascot.pansooni-walking{animation:none}}
 </style></head><body><header><strong>YOUNGHWA <span> / 3D FLASHING STUDIO</span></strong><span id="versionLabel">C/S U바(ㄷ자) · 개발용 v3.95</span></header><div class="shell"><section class="catalog-panel" aria-label="후레싱 제품 선택 및 단면 도면"><div class="catalog-scroll"><div class="field model-switch"><div class="catalog-title">후레싱 제품 선택</div><div id="flashingCatalog" class="flashing-catalog" aria-label="후레싱 제품 단계별 선택"></div><div id="catalogCurrent" class="catalog-current" aria-live="polite"></div><select id="modelSelect" hidden aria-hidden="true" tabindex="-1"><option value="cs">C/S U바(ㄷ자)</option><option value="zinc">아연 BASE 내부</option><option value="zincOuter">아연 BASE 외부</option><option value="corner">코너카바</option><option value="ridge">용마루 小(상)</option><option value="ridgeLarge">용마루 大(상)</option><option value="ridgeLower">용마루(하)</option><option value="gutter70">처마홈통 70</option><option value="gutter150">처마홈통 150</option><option value="gutter200">처마홈통 200</option><option value="endcapGutter">앤드캡 대용 물동</option><option value="gable50">돌출박공 50T</option><option value="flatGable50">평박공 50T</option><option value="flatGable75">평박공 75T</option><option value="flatGable100">평박공 100T</option><option value="csL100">C/S L바 내부 100/100</option><option value="csL40">C/S L바 내부 40/40</option><option value="csL4010">C/S L바 내부 40/10</option><option value="flatGable50">평박공 50T</option><option value="flatGable75">평박공 75T</option><option value="flatGable100">평박공 100T</option><option value="endcapAlt50">앤드캡대용 50T</option><option value="endcapAlt75">앤드캡대용 75T</option><option value="endcapAlt100">앤드캡대용 100T</option><option value="csDrip">C/S 물끊기</option><option value="joinBar">쪼인바</option></select></div></div><div class="color-panel" aria-label="강판 색상 선택"><div class="field" id="coatingSelector"><label>동국제강 강판 색상코드 <span id="selectedCode">E005</span></label><select id="steelCode" aria-label="동국제강 색상코드"></select><div class="swatch-preview" id="steelPreview"></div></div><div class="field" id="insideColorLegend"><label id="insideColorLabel">C/S U바(ㄷ자) 안쪽 철판 · 회색 (고정)</label><div class="swatch-preview" id="insideColorSwatch" style="background:#777777"></div></div><p class="palette-note" id="paletteNote">색상은 업로드된 실물 견본 사진에서 추출한 화면용 근사치입니다. 모니터에 따라 실제 강판과 차이가 날 수 있습니다.</p></div></section><main><canvas id="view"></canvas><div class="tag" id="modelTag">C/S U바(ㄷ자) · 실시간 3D 형상</div><div class="hint">드래그: 회전 &nbsp;|&nbsp; 휠: 확대·축소 &nbsp;|&nbsp; 터치: 회전</div><button class="float-show" type="button" id="floatShow" hidden aria-label="제품 단면 도면 다시 표시">▣ 단면도 보기</button><div class="drawing-area floating-drawing" id="floatingDrawing" role="region" aria-label="이동 가능한 제품 단면 도면"><div class="float-toolbar" id="floatToolbar"><span class="float-grip" title="잡아서 이동">⠿ 제품 단면 도면</span><div class="float-actions"><button type="button" id="floatHide" aria-label="단면 도면 숨기기" title="닫기">×</button></div></div><div class="section-drawing"><div class="drawing-heading">제품 단면 도면 <span>입력 치수 실시간 연동</span></div><div id="sectionDrawing" role="img" aria-label="선택한 후레싱 단면 및 치수"></div><div class="drawing-downloads"><button type="button" id="previewPng">PNG 이미지</button></div><p class="drawing-footnote">A = 바닥 폭 · 좌우 높이 / 단위 mm<span id="hemDiagramNote"> · 접힘 길이</span><br>단면 참고도이며 실제 절곡 반경과 비례는 예시입니다.</p></div><button type="button" class="float-resize-grip float-resize-tl" data-resize-corner="tl" aria-label="왼쪽 위 모서리를 끌어 단면 도면 크기 조절" title="모서리를 끌어 크기 조절"></button><button type="button" class="float-resize-grip float-resize-tr" data-resize-corner="tr" aria-label="오른쪽 위 모서리를 끌어 단면 도면 크기 조절" title="모서리를 끌어 크기 조절"></button><button type="button" class="float-resize-grip float-resize-bl" data-resize-corner="bl" aria-label="왼쪽 아래 모서리를 끌어 단면 도면 크기 조절" title="모서리를 끌어 크기 조절"></button><button type="button" class="float-resize-grip float-resize-br" data-resize-corner="br" aria-label="오른쪽 아래 모서리를 끌어 단면 도면 크기 조절" title="모서리를 끌어 크기 조절"></button></div></main><aside class="settings-panel" aria-label="후레싱 치수 및 색상 설정"><h2 id="modelHeading">C/S U바(ㄷ자) 치수 설정</h2><p id="modelIntro" hidden aria-hidden="true"></p><div class="field preset-field" hidden aria-hidden="true"><select id="panelPreset" aria-label="내부 규격 계산용" tabindex="-1"><option value="custom">직접 입력</option><option value="50">50T · 폭 52 / 좌우 40</option><option value="75">75T · 폭 77 / 좌우 40</option><option value="100">100T · 폭 102 / 좌우 40</option></select></div><div id="fields"></div><div class="buttons"><button id="resetView">시점 초기화</button><button id="resetAll">전체 초기화</button></div><span id="geometryNote" hidden aria-hidden="true"></span></aside></div><dialog id="pngPreviewDialog" aria-label="PNG 도면 미리보기"><div class="png-dialog-heading"><strong>PNG 도면 미리보기</strong><button type="button" id="closePngPreview" aria-label="닫기">닫기 ×</button></div><p class="png-dialog-help">자동으로 저장되지 않습니다. 저장하려면 이미지를 마우스 오른쪽 버튼으로 클릭해 '이미지를 다른 이름으로 저장'을 선택하세요.</p><img id="pngPreviewImage" alt="현재 치수가 표시된 C/S U바 또는 아연 BASE 내부 PNG 단면 도면"></dialog><script>
@@ -1248,7 +1248,7 @@ function drawGutterOpaque(profile=gutterProfilePoints()){
  /* Supersample the depth-tested image before downscaling. The former
     1050px/850px cap produced obvious jagged, blocky edges on desktop. */
  const deviceRatio=canvas.width/Math.max(1,canvas.clientWidth);
- const renderRatio=Math.max(1,Math.min(Math.max(1.5,deviceRatio),2,
+ const renderRatio=fast3DPreview?0.9:Math.max(1,Math.min(Math.max(1.5,deviceRatio),2,
    2400/Math.max(1,canvas.clientWidth),1600/Math.max(1,canvas.clientHeight)));
  const W=Math.max(1,Math.round(canvas.clientWidth*renderRatio));
  const H=Math.max(1,Math.round(canvas.clientHeight*renderRatio));
@@ -1389,8 +1389,9 @@ function drawCorner(p=cornerProfilePoints()){
   }
  }
 }
+let fast3DPreview=false;
 function draw(){
- renderDiagram();
+ if(!fast3DPreview)renderDiagram();
  const w=canvas.clientWidth,h=canvas.clientHeight;
  ctx.clearRect(0,0,w,h);if(!w||!h)return;if(selectedModel==='joinBar'){drawGutterOpaque(joinBarProfilePoints());return;}if(selectedModel==='csDrip'){drawGutterOpaque(csDripProfilePoints());return;}if(selectedModel.startsWith('endcapAlt')){drawGutterOpaque(endcapAltProfilePoints());return;}if(selectedModel.startsWith('csL')){drawGutterOpaque(csLbarProfilePoints());return;}if(selectedModel.startsWith('flatGable')){drawGutterOpaque(flatGableProfilePoints());return;}if(selectedModel==='gable50'||selectedModel==='gable75'||selectedModel==='gable100'){drawGutterOpaque(gableProfilePoints());return;}if(selectedModel==='endcapGutter'){drawGutterOpaque(endcapProfilePoints());return;}if(selectedModel.startsWith('gutter')){drawGutterOpaque();return;}if(selectedModel==='corner'||selectedModel==='ridge'||selectedModel==='ridgeLarge'||selectedModel==='ridgeLower'){drawCorner(selectedModel==='corner'?cornerProfilePoints():selectedModel==='ridgeLower'?lowerRidgeProfilePoints():ridgeProfilePoints());return;}
  const {width:W,left:L,right:R,length:D,thickness:T,hem:H}=values;
@@ -1466,7 +1467,52 @@ function draw(){
  }
  if(selectedModel==='zincOuter'){if(Math.sin(yaw)<-0.0001)outwardWall(x0,l);if(Math.sin(yaw)>0.0001)outwardWall(x1,-R*scale);}else{if(Math.sin(yaw)<-0.0001)outwardWall(x0,l);if(Math.sin(yaw)>0.0001)outwardWall(x1,r);}
 }
-canvas.addEventListener('pointerdown',e=>{drag=true;lastX=e.clientX;lastY=e.clientY;canvas.setPointerCapture(e.pointerId)});canvas.addEventListener('pointermove',e=>{if(!drag)return;yaw-=(e.clientX-lastX)*.008;pitch=Math.max(-1.45,Math.min(1.45,pitch+(e.clientY-lastY)*.007));lastX=e.clientX;lastY=e.clientY;draw()});canvas.addEventListener('pointerup',()=>drag=false);canvas.addEventListener('pointercancel',()=>drag=false);canvas.addEventListener('wheel',e=>{e.preventDefault();zoom=Math.max(.35,Math.min(3,zoom*Math.exp(-e.deltaY*.001)));draw()},{passive:false});document.getElementById('resetView').onclick=()=>{yaw=-.65;pitch=.48;zoom=1.05;draw()};document.getElementById('resetAll').onclick=()=>{values=selectedModel==='joinBar'?{...joinBarDefaults}:selectedModel==='csDrip'?{...csDripDefaults}:selectedModel==='endcapAlt100'?{...endcapAlt100Defaults}:selectedModel==='endcapAlt75'?{...endcapAlt75Defaults}:selectedModel==='endcapAlt50'?{...endcapAlt50Defaults}:selectedModel==='csLOuter40'?{...csLOuter40Defaults}:selectedModel==='csLOuter100'?{...csLOuter100Defaults}:selectedModel==='csL4010'?{...csL4010Defaults}:selectedModel==='csL40'?{...csL40Defaults}:selectedModel==='csL100'?{...csL100Defaults}:selectedModel==='flatGable100'?{...flatGable100Defaults}:selectedModel==='flatGable75'?{...flatGable75Defaults}:selectedModel==='flatGable50'?{...flatGable50Defaults}:selectedModel==='gable100'?{...gable100Defaults}:selectedModel==='gable75'?{...gable75Defaults}:selectedModel==='gable50'?{...gable50Defaults}:selectedModel==='endcapGutter'?{...endcapDefaults}:selectedModel==='gutter200'?{...gutter200Defaults}:selectedModel==='gutter150'?{...gutter150Defaults}:selectedModel==='gutter70'?{...gutterDefaults}:selectedModel==='ridgeLower'?{...ridgeLowerDefaults}:selectedModel==='ridgeLarge'?{...ridgeLargeDefaults}:selectedModel==='ridge'?{...ridgeDefaults}:selectedModel==='corner'?{...cornerDefaults}:selectedModel==='zincOuter'?{...zincOuterDefaults}:selectedModel==='zinc'?{...zincDefaults}:{...defaults};modelValues[selectedModel]={...values};syncDimensionInputs();panelPreset.value=selectedModel==='zinc'||selectedModel==='zincOuter'?'50':'custom';modelPresets[selectedModel]=panelPreset.value;steelSelect.value='E005';refreshSteelColor();yaw=-.65;pitch=.48;zoom=1.05;draw()};
+/* Coalesce high-frequency pointer events; use a lighter interactive preview
+   and restore full-quality pixels once the manipulation finishes. */
+let pending3DFrame=0,wheelFinishTimer=0;
+function schedule3DDraw(){
+ if(pending3DFrame)return;
+ pending3DFrame=requestAnimationFrame(()=>{pending3DFrame=0;draw()});
+}
+function finish3DInteraction(){
+ fast3DPreview=false;
+ document.body.classList.remove('is-rotating-3d');
+ if(pending3DFrame){cancelAnimationFrame(pending3DFrame);pending3DFrame=0}
+ draw();
+}
+canvas.addEventListener('pointerdown',e=>{
+ if(e.button!==0)return;
+ drag=true;fast3DPreview=true;
+ document.body.classList.add('is-rotating-3d');
+ lastX=e.clientX;lastY=e.clientY;canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove',e=>{
+ if(!drag)return;
+ yaw-=(e.clientX-lastX)*.008;
+ pitch=Math.max(-1.45,Math.min(1.45,pitch+(e.clientY-lastY)*.007));
+ lastX=e.clientX;lastY=e.clientY;schedule3DDraw();
+});
+canvas.addEventListener('pointerup',()=>{
+ if(!drag)return;
+ drag=false;finish3DInteraction();
+});
+canvas.addEventListener('pointercancel',()=>{
+ if(!drag)return;
+ drag=false;finish3DInteraction();
+});
+canvas.addEventListener('lostpointercapture',()=>{
+ if(!drag)return;
+ drag=false;finish3DInteraction();
+});
+canvas.addEventListener('wheel',e=>{
+ e.preventDefault();
+ zoom=Math.max(.35,Math.min(3,zoom*Math.exp(-e.deltaY*.001)));
+ fast3DPreview=true;
+ document.body.classList.add('is-rotating-3d');
+ schedule3DDraw();
+ clearTimeout(wheelFinishTimer);
+ wheelFinishTimer=setTimeout(finish3DInteraction,150);
+},{passive:false});document.getElementById('resetView').onclick=()=>{yaw=-.65;pitch=.48;zoom=1.05;draw()};document.getElementById('resetAll').onclick=()=>{values=selectedModel==='joinBar'?{...joinBarDefaults}:selectedModel==='csDrip'?{...csDripDefaults}:selectedModel==='endcapAlt100'?{...endcapAlt100Defaults}:selectedModel==='endcapAlt75'?{...endcapAlt75Defaults}:selectedModel==='endcapAlt50'?{...endcapAlt50Defaults}:selectedModel==='csLOuter40'?{...csLOuter40Defaults}:selectedModel==='csLOuter100'?{...csLOuter100Defaults}:selectedModel==='csL4010'?{...csL4010Defaults}:selectedModel==='csL40'?{...csL40Defaults}:selectedModel==='csL100'?{...csL100Defaults}:selectedModel==='flatGable100'?{...flatGable100Defaults}:selectedModel==='flatGable75'?{...flatGable75Defaults}:selectedModel==='flatGable50'?{...flatGable50Defaults}:selectedModel==='gable100'?{...gable100Defaults}:selectedModel==='gable75'?{...gable75Defaults}:selectedModel==='gable50'?{...gable50Defaults}:selectedModel==='endcapGutter'?{...endcapDefaults}:selectedModel==='gutter200'?{...gutter200Defaults}:selectedModel==='gutter150'?{...gutter150Defaults}:selectedModel==='gutter70'?{...gutterDefaults}:selectedModel==='ridgeLower'?{...ridgeLowerDefaults}:selectedModel==='ridgeLarge'?{...ridgeLargeDefaults}:selectedModel==='ridge'?{...ridgeDefaults}:selectedModel==='corner'?{...cornerDefaults}:selectedModel==='zincOuter'?{...zincOuterDefaults}:selectedModel==='zinc'?{...zincDefaults}:{...defaults};modelValues[selectedModel]={...values};syncDimensionInputs();panelPreset.value=selectedModel==='zinc'||selectedModel==='zincOuter'?'50':'custom';modelPresets[selectedModel]=panelPreset.value;steelSelect.value='E005';refreshSteelColor();yaw=-.65;pitch=.48;zoom=1.05;draw()};
 /* The cross-section SVG remains the single shared source for the screen and
    the existing PNG preview. Only its viewport is detachable/movable. */
 const floatPanel=document.getElementById('floatingDrawing');
@@ -1587,14 +1633,19 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
  function frame(t){
   if(!last)last=t;
   const dt=Math.min(50,t-last);last=t;
-  const w=mascot.getBoundingClientRect().width;
-  const maxX=Math.max(8,window.innerWidth-w-8);
+  const maxX=Math.max(8,window.innerWidth-(window.innerWidth<=780?80:110)-8);
   if(reduced.matches){
    mascot.classList.remove('pansooni-walking');
    mascot.style.transform='translate3d('+Math.round(maxX)+'px,0,0)';
    if(!stopped){stopped=true;mascot.src=walkSrc}
   }else{
-   stopped=false;elapsed+=dt;
+   stopped=false;
+   if(document.body.classList.contains('is-rotating-3d')){
+    last=t;
+    setTimeout(()=>requestAnimationFrame(frame),64);
+    return;
+   }
+   elapsed+=dt;
    if(mode==='walk'){
     x+=dir*dt*.045;distance+=dt*.045;
     if(x>=maxX){x=maxX;dir=-1;enterFire()}
@@ -1603,7 +1654,7 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
    }else if(elapsed>=1100){enterWalk()}
    mascot.style.transform='translate3d('+Math.round(x)+'px,0,0) scaleX('+dir+')';
   }
-  requestAnimationFrame(frame);
+  setTimeout(()=>requestAnimationFrame(frame),64);
  }
  enterWalk();requestAnimationFrame(frame);
 })();
