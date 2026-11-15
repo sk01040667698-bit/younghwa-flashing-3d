@@ -105,20 +105,38 @@ function personCard(contact,thread){
  row.addEventListener('click',()=>openThread(contact.id));
  return row;
 }
+function groupCard(group){
+ const row=document.createElement('button');row.type='button';row.className='yh-person';
+ const avatar=document.createElement('span');avatar.className='yh-avatar';avatar.textContent='👥';
+ const body=document.createElement('span');body.className='yh-person-body';
+ const name=document.createElement('span');name.className='yh-person-name';name.textContent=group.name+' ('+(group.members?.length||0)+')';
+ const preview=document.createElement('span');preview.className='yh-person-preview';preview.textContent=group.lastBody||'단체 대화가 아직 없습니다';
+ body.append(name,preview);
+ const side=document.createElement('span');side.className='yh-person-side';
+ const t=document.createElement('span');t.className='yh-person-time';t.textContent=stamp(group.lastAt);side.append(t);
+ if(group.unread){const n=document.createElement('span');n.className='yh-person-unread';n.textContent=group.unread>99?'99+':String(group.unread);side.append(n)}
+ row.append(avatar,body,side);row.addEventListener('click',()=>openGroup(group.id));return row;
+}
 function renderList(){
  if(messenger.hidden)return;
  list.replaceChildren();
  const q=search.value.trim().toLocaleLowerCase('ko-KR');
  const matches=c=>!q||(c.name+' '+c.department).toLocaleLowerCase('ko-KR').includes(q);
  if(section==='chats'){
-  const rows=threads.filter(t=>byId(t.peer)&&matches(byId(t.peer)));
-  for(const t of rows)list.append(personCard(byId(t.peer),t));
+  const rows=[
+   ...threads.filter(t=>byId(t.peer)&&matches(byId(t.peer))).map(t=>({kind:'private',time:t.lastAt||'',item:t})),
+   ...groups.filter(g=>!q||(g.name+' '+(g.members||[]).map(id=>byId(id)?.name||'').join(' ')).toLocaleLowerCase('ko-KR').includes(q)).map(g=>({kind:'group',time:g.lastAt||'',item:g}))
+  ].sort((a,b)=>b.time.localeCompare(a.time));
+  for(const entry of rows){
+   if(entry.kind==='group')list.append(groupCard(entry.item));
+   else list.append(personCard(byId(entry.item.peer),entry.item));
+  }
   if(!rows.length){
    const empty=document.createElement('div');empty.className='yh-list-empty';
-   empty.textContent=q?'검색된 대화가 없습니다.':'아직 대화가 없습니다.\n친구 탭에서 상대방을 선택해 대화를 시작하세요.';
+   empty.textContent=q?'검색된 대화가 없습니다.':'아직 대화가 없습니다.\n친구 탭에서 상대방을 선택하거나 단체 채팅방을 만드세요.';
    empty.style.whiteSpace='pre-line';list.append(empty);
   }
-  hint.textContent='최근 대화순 · 대화 상대 외 다른 직원은 메시지를 볼 수 없습니다.';
+  hint.textContent='최근 대화순 · 1:1은 두 사람만, 단체방은 초대된 참여자만 볼 수 있습니다.';
  }else{
   const rows=contacts.filter(matches).sort((a,b)=>{
    if(a.online!==b.online)return Number(b.online)-Number(a.online);
@@ -126,7 +144,7 @@ function renderList(){
   });
   for(const c of rows)list.append(personCard(c,null));
   if(!rows.length){const empty=document.createElement('div');empty.className='yh-list-empty';empty.textContent='일치하는 승인 직원이 없습니다.';list.append(empty)}
-  hint.textContent='🟢 사이트 접속 중 · 회색 미접속 (메시지 읽음 여부와 별개)';
+  hint.textContent='🟢 사이트 접속 중 · 회색 미접속 · 단체방에는 승인된 직원만 초대할 수 있습니다.';
  }
 }
 async function refreshContacts(){
@@ -157,9 +175,26 @@ async function refreshEverything(){
  finally{refreshing=false}
 }
 function updateThreadHeader(){
- const person=byId(peer);
- title.textContent=person?person.name+' · 1:1 대화':'직원 대화';
- online.textContent=!person?'상대방 선택 필요':person.online?'🟢 접속 중 · 아직 읽었다는 뜻은 아닙니다':'⚪ 현재 미접속 · 다음 접속 때 메시지 알림을 받습니다';
+ if(activeGroup()){
+  const group=byGroup(groupId);
+  title.textContent=(group?.name||'단체 채팅')+' · 단톡';
+  online.textContent='👥 '+groupParticipants.map(id=>id===myId?'나':(byId(id)?.name||'관리자')).join(', ');
+  invite.textContent='친구 초대+';
+ }else{
+  const person=byId(peer);
+  title.textContent=person?person.name+' · 1:1 대화':'직원 대화';
+  online.textContent=!person?'상대방 선택 필요':person.online?'🟢 접속 중 · 아직 읽었다는 뜻은 아닙니다':'⚪ 현재 미접속 · 다음 접속 때 메시지 알림을 받습니다';
+  invite.textContent='친구 초대+';
+ }
+}
+function attachmentItem(file){
+ const link=document.createElement('a');link.className='yh-file-link';
+ link.href='/api/messenger/file?id='+encodeURIComponent(file.id);
+ link.textContent='📎 '+file.name;
+ link.setAttribute('download',file.name);
+ const meta=document.createElement('small');meta.className='yh-file-meta';
+ meta.textContent='파일 크기 '+Math.ceil(Number(file.size)/1024).toLocaleString('ko-KR')+'KB · 참여자만 다운로드';
+ const holder=document.createElement('div');holder.append(link,meta);return holder;
 }
 function renderMessages(items){
  messages.replaceChildren();
@@ -167,20 +202,38 @@ function renderMessages(items){
  for(const item of items){
   const mine=item.sender===myId;
   const wrap=document.createElement('div');wrap.className='yh-bubble'+(mine?' mine':'');
-  const text=document.createElement('div');text.textContent=item.body;
-  const info=document.createElement('div');info.className='yh-bubble-info';info.textContent=detail(item.sentAt)+(mine?(item.readAt?' · 읽음':' · 안 읽음'):'');
-  wrap.append(text,info);messages.append(wrap);
+  if(activeGroup()&&!mine){
+   const person=document.createElement('div');person.style.fontWeight='bold';person.style.fontSize='11px';person.textContent=byId(item.sender)?.name||(item.sender==='admin'?'윤동현(관리자)':'참여자');wrap.append(person);
+  }
+  if(item.attachment)wrap.append(attachmentItem(item.attachment));
+  else{const text=document.createElement('div');text.textContent=item.body;wrap.append(text)}
+  const info=document.createElement('div');info.className='yh-bubble-info';info.textContent=detail(item.sentAt)+(mine&&!activeGroup()&&!item.attachment?(item.readAt?' · 읽음':' · 안 읽음'):'');
+  wrap.append(info);messages.append(wrap);
  }
  messages.scrollTop=messages.scrollHeight;
 }
 async function refreshMessages(){
- if(float.hidden||!peer||loadingMessages||document.hidden)return;
- loadingMessages=true;const target=peer;
+ if(float.hidden||(!peer&&!groupId)||loadingMessages||document.hidden)return;
+ loadingMessages=true;const target=peer,groupTarget=groupId;
  try{
-  const data=await request('/api/messenger/messages?peer='+encodeURIComponent(target));
-  if(target!==peer||float.hidden)return;
-  const items=data.messages||[];
-  const signature=items.map(x=>x.id+':'+(x.readAt||'')).join(',');
+  let items=[],signature='';
+  if(groupTarget){
+   const data=await request('/api/messenger/group-messages?group='+encodeURIComponent(groupTarget));
+   if(groupTarget!==groupId||float.hidden)return;
+   groupParticipants=data.members||[];
+   items=data.messages||[];
+  }else{
+   const [privateData,fileData]=await Promise.all([
+    request('/api/messenger/messages?peer='+encodeURIComponent(target)),
+    request('/api/messenger/private-files?peer='+encodeURIComponent(target))
+   ]);
+   if(target!==peer||float.hidden)return;
+   items=[...(privateData.messages||[]),...(fileData.files||[]).map(f=>({
+    id:'file-'+f.id,sender:f.sender,body:'📎 '+f.name,sentAt:f.sentAt,readAt:null,attachment:f
+   }))].sort((a,b)=>String(a.sentAt).localeCompare(String(b.sentAt)));
+  }
+  updateThreadHeader();
+  signature=items.map(x=>x.id+':'+(x.readAt||'')).join(',');
   if(signature!==lastSignature){renderMessages(items);lastSignature=signature}
   await Promise.all([refreshThreads(),refreshGroups(),refreshUnread()]);
   renderList();
@@ -189,7 +242,13 @@ async function refreshMessages(){
 }
 function openThread(id){
  if(!byId(id))return;
- peer=id;lastSignature='';messages.replaceChildren();status.textContent='개인 대화 · 상대방과 나만 볼 수 있습니다.';
+ peer=id;groupId='';groupParticipants=[];lastSignature='';messages.replaceChildren();status.textContent='개인 대화 · 상대방과 나만 볼 수 있습니다.';
+ updateThreadHeader();showFloating();
+}
+function openGroup(id){
+ const g=byGroup(id);if(!g)return;
+ groupId=id;peer='';groupParticipants=g.members||[];lastSignature='';messages.replaceChildren();
+ status.textContent='단체방 · 초대된 참여자만 메시지와 첨부파일을 확인할 수 있습니다.';
  updateThreadHeader();showFloating();
 }
 async function heartbeat(){
