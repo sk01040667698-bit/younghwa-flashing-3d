@@ -1566,13 +1566,13 @@ window.addEventListener('resize',()=>{
 positionFloatDefault();
 
 refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
-</script><img class="pansooni-fire-mascot" src="assets/pansooni-walk.png" alt="걷다가 불을 뿜는 판순이" width="108" height="108" draggable="false"><script>
+</script><img class="pansooni-fire-mascot" src="assets/pansooni-walk.webp" alt="걷다가 불을 뿜는 판순이" width="108" height="108" draggable="false"><script>
 /* Walking and fire are independent high-resolution transparent GIFs. */
 (function(){
  const mascot=document.querySelector('.pansooni-fire-mascot');
  if(!mascot)return;
- const walkSrc=new URL('assets/pansooni-walk.png',document.baseURI).href;
- const fireSrc=new URL('assets/pansooni-fire.png',document.baseURI).href;
+ const walkSrc=new URL('assets/pansooni-walk.webp',document.baseURI).href;
+ const fireSrc=new URL('assets/pansooni-fire.webp',document.baseURI).href;
  let x=16,dir=1,mode='walk',distance=0,elapsed=0,last=0,stopped=false;
  const reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
  function enterWalk(){
