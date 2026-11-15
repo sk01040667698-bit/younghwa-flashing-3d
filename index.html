@@ -1679,7 +1679,7 @@ window.addEventListener('resize',()=>{
 positionFloatDefault();
 
 refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
-</script><img class="pansooni-fire-mascot" src="assets/pansooni-dance.webp" alt="좌우로 춤추다가 불을 뿜는 판순이" width="108" height="108" draggable="false"><script>
+</script><img class="pansooni-fire-mascot" src="assets/pansooni-dance.webp?v=2" alt="좌우로 춤추다가 불을 뿜는 판순이" width="108" height="108" draggable="false"><script>
 /* Dancing Pansooni: short side-steps, occasional fire, user ON/OFF preserved. */
 (function(){
  const mascot=document.querySelector('.pansooni-fire-mascot');
@@ -1687,7 +1687,7 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
  const label=document.getElementById('pansooniToggleLabel');
  if(!mascot||!toggle||!label)return;
  const key='younghwa-pansooni-visible';
- const danceSrc=new URL('assets/pansooni-dance.webp',document.baseURI).href;
+ const danceSrc=new URL('assets/pansooni-dance.webp?v=2',document.baseURI).href;
  const fireSrc=new URL('assets/pansooni-fire.webp',document.baseURI).href;
  const reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
  let enabled=true,x=0,dir=-1,mode='dance',elapsed=0,danceElapsed=0,last=0,stopped=false;
