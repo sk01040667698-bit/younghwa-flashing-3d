@@ -65,8 +65,14 @@ function badgePosition(){
  badge.style.left=Math.round(clamp(rect.right-18,5,window.innerWidth-31))+'px';
  badge.style.top=Math.round(clamp(rect.top+3,5,window.innerHeight-31))+'px';
 }
+let lastAlertUnreads=null;
 function syncCount(){
  unreadTotal=privateUnreadTotal+groups.reduce((sum,g)=>sum+(Number(g.unread)||0),0);
+ const hasUnread=unreadTotal>0;
+ if(lastAlertUnreads!==hasUnread){
+  lastAlertUnreads=hasUnread;
+  window.dispatchEvent(new CustomEvent('pansooni-messenger-unread',{detail:{unread:hasUnread}}));
+ }
  badgePosition();
  count.textContent=unreadTotal?'('+unreadTotal+')':'';
  tab.textContent='사내 메신저'+(unreadTotal?' ('+unreadTotal+')':'');
