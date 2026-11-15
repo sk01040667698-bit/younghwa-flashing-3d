@@ -170,7 +170,7 @@ export default {
      const recent=await db.prepare("SELECT device_id,last_seen FROM yh_messenger_presence WHERE last_seen>=? LIMIT 400").bind(Date.now()-75000).all();
      const online=new Set((recent.results||[]).map(x=>x.device_id));
      const contacts=(list.results||[]).filter(x=>x.id!==myId).map(x=>({id:x.id,name:x.name,department:x.department,pc:x.pc,online:online.has(x.id)}));
-     if(myId!=='admin')contacts.unshift({id:'admin',name:'관리자',department:'관리',pc:'관리자 계정',online:online.has('admin')});
+     if(myId!=='admin')contacts.unshift({id:'admin',name:'윤동현(관리자)',department:'관리',pc:'관리자 계정',online:online.has('admin')});
      return json({me:{id:myId,name:me.name,department:me.department},contacts,onlineThresholdSeconds:75});
     }
     if(p==='/api/messenger/unread'&&m==='GET'){
