@@ -1950,7 +1950,7 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
   const submit=form.querySelector('button[type="submit"]');
   if(submit)submit.disabled=true;
   const controller=new AbortController();
-  const timeout=setTimeout(()=>controller.abort(),22000);
+  const timeout=setTimeout(()=>controller.abort(),70000);
   try{
    const result=await fetch(aiEndpoint+'/chat',{
     method:'POST',headers:{'content-type':'application/json'},
@@ -1964,7 +1964,7 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
    history.push({role:'user',content:q},{role:'assistant',content:data.answer.slice(0,600)});
   }catch(err){
    const fallback=answer(q);
-   const category=String(err?.message||'').slice(0,70);
+   const category=err?.name==='AbortError'?'AbortError':String(err?.message||'').slice(0,70);
    const reason={
     quota_or_rate_limit:'무료 AI 사용 한도 또는 요청 제한',
     model_unavailable:'AI 모델 사용 불가',
@@ -1972,7 +1972,10 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
     empty_response:'AI 답변 생성 실패',
     ai_binding_missing:'Workers AI 연결 설정 누락',
     inference_error:'AI 모델 호출 오류',
+    binding_or_permission:'AI 바인딩 권한 문제',
     connection_error:'AI 응답 형식 오류',
+    AbortError:'응답 시간 초과(70초)',
+    TypeError:'네트워크 연결 오류',
     Failed_to_fetch:'네트워크 연결 오류'
    }[category]||'연결 또는 서버 오류';
    reply.textContent='생성형 AI 응답에 실패했습니다 ('+reason+').\n지금은 현재 3D 사이트 검색형으로 답변합니다.\n\n'+fallback;
