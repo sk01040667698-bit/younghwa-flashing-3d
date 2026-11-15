@@ -9,6 +9,10 @@
  const messengerTab=document.getElementById('pansooniMessengerTab');
  const aiTab=document.getElementById('pansooniAiTab');
  const contactSelect=document.getElementById('pansooniPeerSelect');
+ const contactTrigger=document.getElementById('pansooniContactTrigger');
+ const contactPicker=document.getElementById('pansooniContactPicker');
+ const contactSearch=document.getElementById('pansooniContactSearch');
+ const contactList=document.getElementById('pansooniContactList');
  const contactStatus=document.getElementById('pansooniPeerStatus');
  const presenceRow=document.getElementById('pansooniPeerPresence');
  const presenceDot=document.getElementById('pansooniPeerPresenceDot');
@@ -19,7 +23,7 @@
  const send=form?.querySelector('button[type=submit]');
  const badge=document.getElementById('pansooniUnreadBadge');
  const mascot=document.querySelector('.pansooni-fire-mascot');
- if(!chat||!panel||!messengerTab||!aiTab||!contactSelect||!presenceRow||!presenceDot||!presenceText||!thread||!form||!input||!send||!badge||!mascot)return;
+ if(!chat||!panel||!messengerTab||!aiTab||!contactSelect||!contactTrigger||!contactPicker||!contactSearch||!contactList||!presenceRow||!presenceDot||!presenceText||!thread||!form||!input||!send||!badge||!mascot)return;
  const aiSections=[
   document.getElementById('pansooniChatMessages'),
   chat.querySelector('.pansooni-chat-chips'),
@@ -31,6 +35,59 @@
  const originHeaders={'content-type':'application/json'};
  function nameOf(id){const item=contacts.find(x=>x.id===id);return item?item.name:'직원'}
  function notice(message){contactStatus.textContent=message}
+ function setPickerOpen(open){
+  contactPicker.hidden=!open;
+  contactTrigger.setAttribute('aria-expanded',String(open));
+  if(open){
+   contactSearch.value='';
+   renderContactPicker();
+   contactSearch.focus();
+  }
+ }
+ function renderContactPicker(){
+  const query=contactSearch.value.trim().toLocaleLowerCase('ko-KR');
+  const matching=contacts.filter(c=>(c.name+' '+c.department+' '+(c.pc||'')).toLocaleLowerCase('ko-KR').includes(query));
+  matching.sort((a,b)=>{
+   const na=unread[a.id]||0,nb=unread[b.id]||0;
+   if(Boolean(na)!==Boolean(nb))return nb-na;
+   if(Boolean(a.online)!==Boolean(b.online))return Number(b.online)-Number(a.online);
+   return a.name.localeCompare(b.name,'ko-KR');
+  });
+  contactList.replaceChildren();
+  if(!matching.length){
+   const empty=document.createElement('div');empty.className='pansooni-contact-none';
+   empty.textContent=contacts.length?'검색 결과가 없습니다.':'승인된 다른 직원이 없습니다.';
+   contactList.append(empty);return;
+  }
+  for(const employee of matching){
+   const button=document.createElement('button');button.type='button';
+   button.className='pansooni-contact-item'+(peer===employee.id?' selected':'');
+   button.setAttribute('role','option');
+   button.setAttribute('aria-selected',String(peer===employee.id));
+   const dot=document.createElement('span');dot.className='pansooni-contact-dot'+(employee.online?' online':'');
+   dot.title=employee.online?'접속 중':'현재 미접속';
+   const name=document.createElement('span');name.className='pansooni-contact-name';name.textContent=employee.name;
+   const department=document.createElement('span');department.className='pansooni-contact-dept';department.textContent=employee.department;
+   button.append(dot,name,department);
+   const n=unread[employee.id]||0;
+   if(n){
+    const count=document.createElement('span');count.className='pansooni-contact-unread';count.textContent=n>99?'99+':String(n);
+    count.setAttribute('aria-label','읽지 않은 메시지 '+n+'개');button.append(count);
+   }
+   button.addEventListener('click',()=>{
+    contactSelect.value=employee.id;
+    contactSelect.dispatchEvent(new Event('change'));
+    setPickerOpen(false);
+   });
+   contactList.append(button);
+  }
+ }
+ function updateSelectedLabel(){
+  const current=contacts.find(c=>c.id===peer);
+  contactTrigger.textContent=current?(current.online?'🟢 ':'⚪ ')+current.name+' · '+current.department+'  ▾':'🔎 직원 이름으로 검색 · 선택';
+  contactTrigger.title=current?(current.online?'접속 중 · ':'현재 미접속 · ')+current.name:'직원 선택 또는 검색';
+ }
+
  function showPeerPresence(){
   const selected=contacts.find(x=>x.id===peer);
   presenceRow.hidden=!selected;
@@ -46,10 +103,10 @@
    if(!option.value)continue;
    const employee=contacts.find(c=>c.id===option.value);
    if(!employee)continue;
-   const n=unread[option.value]||0;
-   option.textContent=(employee.online?'🟢 ':'⚪ ')+employee.name+' · '+employee.department+
-    (employee.pc?' · '+employee.pc:'')+(n?' ('+n+'개 새 메시지)':'');
+   option.textContent=employee.name+' · '+employee.department;
   }
+  updateSelectedLabel();
+  if(!contactPicker.hidden)renderContactPicker();
   showPeerPresence();
  }
  async function sendHeartbeat(){
@@ -114,14 +171,14 @@
    for(const item of contacts){
     const option=document.createElement('option');
     option.value=item.id;
-    option.textContent=(item.online?'🟢 ':'⚪ ')+item.name+' · '+item.department+(item.pc?' · '+item.pc:'');
+    option.textContent=item.name+' · '+item.department;
     contactSelect.append(option);
    }
    if(wanted&&contacts.some(c=>c.id===wanted)){peer=wanted;contactSelect.value=peer;}
    else if(contacts.length===1){peer=contacts[0].id;contactSelect.value=peer;}
    else{peer='';contactSelect.value='';}
    notice(contacts.length?'초록색은 사이트 접속 중, 흰색은 미접속을 뜻합니다.':'승인된 다른 직원이 아직 없습니다.');
-   showPeerPresence();
+   renderContacts();
    await loadUnread();
    if(peer)await loadMessages();
   }catch(e){notice('메신저를 사용할 수 없습니다: '+e.message)}
@@ -172,11 +229,24 @@
   }catch(e){notice('대화를 불러오지 못했습니다: '+e.message)}
   finally{refreshing=false}
  }
+ contactTrigger.addEventListener('click',()=>setPickerOpen(contactPicker.hidden));
+ contactSearch.addEventListener('input',renderContactPicker);
+ contactSearch.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){setPickerOpen(false);contactTrigger.focus();}
+  else if(e.key==='Enter'){
+   const first=contactList.querySelector('.pansooni-contact-item');
+   if(first){e.preventDefault();first.click();}
+  }
+ });
+ document.addEventListener('pointerdown',e=>{
+  if(!contactPicker.hidden&&!contactPicker.contains(e.target)&&e.target!==contactTrigger)setPickerOpen(false);
+ });
  contactSelect.addEventListener('change',()=>{
   peer=contactSelect.value;lastMessageSignature='';
   thread.replaceChildren();
   if(peer){notice(nameOf(peer)+'님과 1:1 대화 중');loadMessages();}
   else notice('대화할 직원을 선택해 주세요.');
+  updateSelectedLabel();
   showPeerPresence();
  });
  form.addEventListener('submit',async e=>{
