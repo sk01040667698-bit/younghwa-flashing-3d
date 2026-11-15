@@ -112,9 +112,9 @@ body.catalog-pending .floating-drawing,body.catalog-pending .float-show{display:
 @media(max-width:780px){header{padding:0 10px;gap:6px}header strong{font-size:14px}.header-controls{gap:6px}.pansooni-toggle{padding:7px;font-size:11px}.pansooni-style-label{display:none}.pansooni-style-select{max-width:112px;padding:6px 4px;font-size:11px}#versionLabel{display:none}}
 
 /* Pansooni offline product assistant — local browser-only knowledge search. */
-.pansooni-chat{position:fixed;right:14px;bottom:14px;width:min(365px,calc(100vw - 24px));height:min(510px,calc(100dvh - 94px));display:flex;flex-direction:column;background:#172634;color:#edf5fc;border:1px solid #537084;border-radius:14px;box-shadow:0 16px 45px #000a;z-index:110;overflow:hidden;font:13px Arial,'Malgun Gothic',sans-serif}
+.pansooni-chat{position:fixed;left:0;top:0;right:auto;bottom:auto;width:365px;height:510px;display:flex;flex-direction:column;background:#172634;color:#edf5fc;border:1px solid #537084;border-radius:14px;box-shadow:0 16px 45px #000a;z-index:110;overflow:hidden;font:13px Arial,'Malgun Gothic',sans-serif}
 .pansooni-chat[hidden]{display:none!important}
-.pansooni-chat-head{flex:0 0 auto;background:#233e51;padding:11px 13px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #476175}
+.pansooni-chat-head{flex:0 0 auto;background:#233e51;padding:11px 13px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #476175;cursor:move;touch-action:none;user-select:none}
 .pansooni-chat-head strong{font-size:14px}
 .pansooni-chat-head small{display:block;font-size:10px;margin-top:4px;color:#b2c9d9}
 /* Keep the mode status available to JS while hiding the redundant header text. */
@@ -130,7 +130,13 @@ body.catalog-pending .floating-drawing,body.catalog-pending .float-show{display:
 .pansooni-chat-form input{flex:1;min-width:0;border:1px solid #536d80;border-radius:7px;padding:9px 10px;color:#fff;background:#223749;font:12px Arial,'Malgun Gothic',sans-serif}
 .pansooni-chat-form button{flex:0 0 auto;padding:8px 11px;font-size:12px}
 .pansooni-chat-limit{font-size:10px;color:#9eb6c9;padding:0 11px 10px;line-height:1.4}
-@media(max-width:780px){.pansooni-chat{bottom:8px;right:8px;width:min(340px,calc(100vw - 16px));height:min(470px,calc(100dvh - 82px))}}
+/* Main Pansooni window can be dragged and resized independently of the floating conversation. */
+.pansooni-pane-grip{position:absolute;width:18px;height:18px;z-index:12;touch-action:none}
+.pansooni-pane-grip-tl{top:0;left:0;cursor:nwse-resize}
+.pansooni-pane-grip-tr{top:0;right:0;cursor:nesw-resize}
+.pansooni-pane-grip-bl{bottom:0;left:0;cursor:nesw-resize}
+.pansooni-pane-grip-br{bottom:0;right:0;cursor:nwse-resize}
+@media(max-width:780px){.pansooni-chat{max-width:calc(100vw - 10px);max-height:calc(100dvh - 10px)}}
 
 /* Private staff-to-staff Pansooni messenger, isolated from the existing AI chat. */
 .pansooni-chat [hidden]{display:none!important}
@@ -1979,7 +1985,12 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
  <span class="yh-resize yh-resize-tr" data-yh-resize="tr" role="separator" aria-label="오른쪽 위 모서리를 끌어 크기 조절"></span>
  <span class="yh-resize yh-resize-bl" data-yh-resize="bl" role="separator" aria-label="왼쪽 아래 모서리를 끌어 크기 조절"></span>
  <span class="yh-resize yh-resize-br" data-yh-resize="br" role="separator" aria-label="오른쪽 아래 모서리를 끌어 크기 조절"></span>
-</div></section><script>
+</div>
+<span class="pansooni-pane-grip pansooni-pane-grip-tl" data-pansooni-pane-resize="tl" role="separator" aria-label="왼쪽 위 모서리를 끌어 판순이 창 크기 조절"></span>
+<span class="pansooni-pane-grip pansooni-pane-grip-tr" data-pansooni-pane-resize="tr" role="separator" aria-label="오른쪽 위 모서리를 끌어 판순이 창 크기 조절"></span>
+<span class="pansooni-pane-grip pansooni-pane-grip-bl" data-pansooni-pane-resize="bl" role="separator" aria-label="왼쪽 아래 모서리를 끌어 판순이 창 크기 조절"></span>
+<span class="pansooni-pane-grip pansooni-pane-grip-br" data-pansooni-pane-resize="br" role="separator" aria-label="오른쪽 아래 모서리를 끌어 판순이 창 크기 조절"></span>
+</section><script>
 /* Optional Cloudflare Workers AI backend. When the endpoint is not configured,
    free local FAQ stays functional; never label the fallback as generative AI. */
 (function(){
@@ -2124,4 +2135,4 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
   link.hidden=!(status&&status.role==='admin'&&status.status==='approved');
  }catch(_){link.hidden=true}
 })();
-</script><button id="pansooniUnreadBadge" type="button" aria-label="새 개인 메시지 확인" hidden></button><script src="pansooni-messenger.js"></script></body></html>
+</script><button id="pansooniUnreadBadge" type="button" aria-label="새 개인 메시지 확인" hidden></button><script src="pansooni-messenger.js"></script><script src="pansooni-pane-drag.js"></script></body></html>
