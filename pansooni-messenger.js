@@ -11,6 +11,8 @@ const chatsTab=el('yhChatListTab'),friendsTab=el('yhFriendListTab'),search=el('y
 const float=el('yhFloatingThread'),header=el('yhFloatingHeader'),title=el('yhFloatingTitle'),online=el('yhFloatingOnline'),messages=el('yhFloatingMessages'),form=el('yhFloatingForm'),input=el('yhFloatingInput'),send=form?.querySelector('button[type=submit]'),status=el('yhFloatingStatus');
 const close=el('yhFloatingClose'),minimize=el('yhFloatingMinimize'),badge=el('pansooniUnreadBadge'),mascot=document.querySelector('.pansooni-fire-mascot');
 if(!pane||!messenger||!tab||!aiTab||!chatsTab||!friendsTab||!search||!list||!hint||!count||!float||!header||!title||!online||!messages||!form||!input||!send||!status||!close||!minimize||!badge||!mascot)return;
+// The floating conversation must not inherit the AI/chat panel's clipping or hidden state.
+document.body.append(float);
 const aiNodes=[el('pansooniChatMessages'),pane.querySelector('.pansooni-chat-chips'),el('pansooniChatForm'),pane.querySelector('.pansooni-chat-limit')].filter(Boolean);
 const saveKey='yh-messenger-floating-geometry-v1';
 let myId='',contacts=[],threads=[],unread={},unreadTotal=0,peer='',mode='ai',section='chats',busy=false,loadingMessages=false,lastSignature='';
