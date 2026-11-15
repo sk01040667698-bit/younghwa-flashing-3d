@@ -1298,6 +1298,48 @@ function drawGutterOpaque(profile=gutterProfilePoints()){
   tri(f.p[0],f.p[2],f.p[3],f.color);
  }
  layerCtx.putImageData(pixels,0,0);
+ /* Draw actual fold junctions only, including flat gables, L-bars and
+    gutters. Depth-test each small line segment against the same 3D surface
+    buffer so back-side seams do not shine through the front of the panel. */
+ const foldAngle=i=>{
+  if(i<=0||i>=points.length-1)return 0;
+  const p0=points[i-1],p1=points[i],p2=points[i+1];
+  const ax=p1[0]-p0[0],ay=p1[1]-p0[1];
+  const bx=p2[0]-p1[0],by=p2[1]-p1[1];
+  const la=Math.hypot(ax,ay),lb=Math.hypot(bx,by);
+  if(la<0.0001||lb<0.0001)return 0;
+  return Math.acos(Math.max(-1,Math.min(1,(ax*bx+ay*by)/(la*lb))))*180/Math.PI;
+ };
+ const visibleAt=(x,y,d)=>{
+  const px=Math.round(x*renderRatio),py=Math.round(y*renderRatio);
+  const tolerance=Math.max(0.8,gauge*1.25);
+  for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){
+   const sx=px+ox,sy=py+oy;
+   if(sx<0||sy<0||sx>=W||sy>=H)continue;
+   const surfaceDepth=zBuffer[sy*W+sx];
+   if(surfaceDepth!==-Infinity&&d>=surfaceDepth-tolerance)return true;
+  }
+  return false;
+ };
+ layerCtx.strokeStyle='rgba(35,46,52,.70)';
+ layerCtx.lineWidth=Math.max(1,renderRatio*.82);
+ layerCtx.lineCap='round';
+ for(let i=1;i<points.length-1;i++){
+  if(foldAngle(i)<20)continue;
+  const a=project([...points[i],z0]),b=project([...points[i],z1]);
+  const steps=Math.max(2,Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)*renderRatio/3));
+  layerCtx.beginPath();
+  let penDown=false;
+  for(let j=0;j<=steps;j++){
+   const t=j/steps,x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t;
+   const depth=a.depth+(b.depth-a.depth)*t;
+   if(visibleAt(x,y,depth)){
+    if(!penDown){layerCtx.moveTo(x*renderRatio,y*renderRatio);penDown=true}
+    else layerCtx.lineTo(x*renderRatio,y*renderRatio);
+   }else penDown=false;
+  }
+  layerCtx.stroke();
+ }
  ctx.imageSmoothingEnabled=true;
  ctx.imageSmoothingQuality='high';
  ctx.drawImage(layer,0,0,canvas.clientWidth,canvas.clientHeight);
@@ -1371,6 +1413,17 @@ function drawCorner(p=cornerProfilePoints()){
    const q=[[...a1,z0],[...b1,z0],[...b1,z1],[...a1,z1]].map(project);
    ctx.beginPath();q.forEach((pt,j)=>j?ctx.lineTo(pt.x,pt.y):ctx.moveTo(pt.x,pt.y));ctx.closePath();
    ctx.fillStyle=lowerInside?'#777777':ridgeColor;ctx.fill();
+   /* C/S U-bar style fine crease line at the actual shared fold edge. */
+   if(i>0){
+    const a=main[i-1],b=main[i],c=main[i+1];
+    const ax=b[0]-a[0],ay=b[1]-a[1],bx=c[0]-b[0],by=c[1]-b[1];
+    const la=Math.hypot(ax,ay),lb=Math.hypot(bx,by);
+    const bend=la>0&&lb>0?Math.acos(Math.max(-1,Math.min(1,(ax*bx+ay*by)/(la*lb)))):0;
+    if(bend>0.18){
+     ctx.beginPath();ctx.moveTo(q[0].x,q[0].y);ctx.lineTo(q[3].x,q[3].y);
+     ctx.strokeStyle='rgba(43,54,61,.62)';ctx.lineWidth=.85;ctx.stroke();
+    }
+   }
   }
   if(selectedModel==='ridgeLower'){
    /* Lower ridge: the returned GALVANIZED back face is visible along the
