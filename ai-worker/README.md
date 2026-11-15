@@ -34,3 +34,5 @@
 - 필요할 때만 공개 가능 자료를 검수·승인하고 서버의 지식 목록에 추가할 수 있습니다.
 
 공식 설정 안내: https://developers.cloudflare.com/pages/functions/bindings/#workers-ai
+
+<!-- Cloudflare Pages: trigger fresh production deployment after Workers AI binding setup. -->
