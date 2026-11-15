@@ -132,6 +132,7 @@ export async function messengerExtensions({request,env,db,me,path,url,originOK})
   // Read the file exactly once; Workers memory is limited, hence 10 MiB maximum.
   const bytes=new Uint8Array(await request.arrayBuffer());
   if(!bytes.length||bytes.length>MAX_FILE_BYTES)return err('파일은 10MB(10,240KB) 이하만 업로드할 수 있습니다',413);
+  if(Number(storage?.total||0)+bytes.length>1024*1024*1024)return err('사내 메신저 파일 보관 한도(총 1GB)에 도달했습니다',413);
   if(!headOK(ext,bytes))return err('파일 내용이 확장자와 일치하지 않습니다');
   const id=crypto.randomUUID(),key='private-messenger/'+id,now=new Date().toISOString();
   await env.MESSENGER_FILES.put(key,bytes,{httpMetadata:{contentType:ALLOWED_EXT[ext]}});
