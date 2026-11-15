@@ -1836,9 +1836,11 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
   selection=['auto','original','hip','bad'].includes(styleSelect.value)?styleSelect.value:'auto';
   try{localStorage.setItem(modeKey,selection)}catch(_){}
   stopLoop();
-  setDanceFromChoice();
-  place();
-  if(enabled&&!document.hidden)raf=requestAnimationFrame(t=>{raf=0;frame(t)});
+  if(enabled){
+   setDanceFromChoice();
+   place();
+   if(!document.hidden)raf=requestAnimationFrame(t=>{raf=0;frame(t)});
+  }
  });
  document.addEventListener('visibilitychange',()=>{
   stopLoop();
