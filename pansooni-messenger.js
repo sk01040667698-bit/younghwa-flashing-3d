@@ -10,12 +10,15 @@ const pane=el('pansooniChat'),messenger=el('pansooniMessenger'),tab=el('pansooni
 const chatsTab=el('yhChatListTab'),friendsTab=el('yhFriendListTab'),search=el('yhMessengerSearch'),list=el('yhMessengerList'),hint=el('yhMessengerNotice'),count=el('yhChatListCount');
 const float=el('yhFloatingThread'),header=el('yhFloatingHeader'),title=el('yhFloatingTitle'),online=el('yhFloatingOnline'),messages=el('yhFloatingMessages'),form=el('yhFloatingForm'),input=el('yhFloatingInput'),send=form?.querySelector('button[type=submit]'),status=el('yhFloatingStatus');
 const close=el('yhFloatingClose'),minimize=el('yhFloatingMinimize'),badge=el('pansooniUnreadBadge'),mascot=document.querySelector('.pansooni-fire-mascot');
-if(!pane||!messenger||!tab||!aiTab||!chatsTab||!friendsTab||!search||!list||!hint||!count||!float||!header||!title||!online||!messages||!form||!input||!send||!status||!close||!minimize||!badge||!mascot)return;
+const createGroup=el('yhGroupCreate'),invite=el('yhFloatingInvite'),fileAttach=el('yhFileAttach'),fileSelect=el('yhFileSelect');
+const groupModal=el('yhGroupModal'),groupDismiss=el('yhGroupDismiss'),groupName=el('yhGroupName'),groupSearch=el('yhGroupSearch'),groupMembers=el('yhGroupMembers'),groupStatus=el('yhGroupStatus'),groupConfirm=el('yhGroupConfirm');
+if(!pane||!messenger||!tab||!aiTab||!chatsTab||!friendsTab||!search||!list||!hint||!count||!float||!header||!title||!online||!messages||!form||!input||!send||!status||!close||!minimize||!badge||!mascot||!createGroup||!invite||!fileAttach||!fileSelect||!groupModal||!groupDismiss||!groupName||!groupSearch||!groupMembers||!groupStatus||!groupConfirm)return;
 // The floating conversation must not inherit the AI/chat panel's clipping or hidden state.
 document.body.append(float);
+document.body.append(groupModal);
 const aiNodes=[el('pansooniChatMessages'),pane.querySelector('.pansooni-chat-chips'),el('pansooniChatForm'),pane.querySelector('.pansooni-chat-limit')].filter(Boolean);
 const saveKey='yh-messenger-floating-geometry-v1';
-let myId='',contacts=[],threads=[],unread={},unreadTotal=0,peer='',mode='ai',section='chats',busy=false,loadingMessages=false,lastSignature='';
+let myId='',contacts=[],threads=[],groups=[],unread={},privateUnreadTotal=0,unreadTotal=0,peer='',groupId='',groupParticipants=[],mode='ai',section='chats',busy=false,loadingMessages=false,lastSignature='',modalPurpose='create';
 let win={x:0,y:0,w:385,h:490},moving=null,resizing=null;
 const minW=275,minH=260;
 function clamp(n,min,max){return Math.min(Math.max(n,min),Math.max(min,max))}
@@ -38,9 +41,11 @@ function layout(){
  Object.assign(float.style,{width:Math.round(win.w)+'px',height:Math.round(win.h)+'px',left:Math.round(win.x)+'px',top:Math.round(win.y)+'px'});
 }
 function saveGeometry(){try{localStorage.setItem(saveKey,JSON.stringify(win))}catch(_){}}
-function showFloating(){if(!peer)return;float.hidden=false;layout();refreshMessages();input.focus()}
+function showFloating(){if(!peer&&!groupId)return;float.hidden=false;layout();refreshMessages();input.focus()}
 function hideFloating(){float.hidden=true;lastSignature='';renderList()}
 function byId(id){return contacts.find(c=>c.id===id)}
+function byGroup(id){return groups.find(g=>g.id===id)}
+function activeGroup(){return Boolean(groupId)}
 function label(id){const c=byId(id);return c?c.name:'상대방'}
 function stamp(t){const d=new Date(t);return Number.isNaN(d.getTime())?'':d.toLocaleString('ko-KR',{hour:'2-digit',minute:'2-digit'})}
 function detail(t){const d=new Date(t);return Number.isNaN(d.getTime())?'':d.toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}
@@ -61,6 +66,7 @@ function badgePosition(){
  badge.style.top=Math.round(clamp(rect.top+3,5,window.innerHeight-31))+'px';
 }
 function syncCount(){
+ unreadTotal=privateUnreadTotal+groups.reduce((sum,g)=>sum+(Number(g.unread)||0),0);
  badgePosition();
  count.textContent=unreadTotal?'('+unreadTotal+')':'';
  tab.textContent='사내 메신저'+(unreadTotal?' ('+unreadTotal+')':'');
@@ -129,8 +135,13 @@ async function refreshContacts(){
  updateThreadHeader();
 }
 async function refreshThreads(){const data=await request('/api/messenger/threads');threads=Array.isArray(data.threads)?data.threads:[]}
+async function refreshGroups(){
+ const data=await request('/api/messenger/groups');
+ groups=Array.isArray(data.groups)?data.groups:[];
+ syncCount();
+}
 async function refreshUnread(){
- const data=await request('/api/messenger/unread');unreadTotal=Number(data.total)||0;unread={};
+ const data=await request('/api/messenger/unread');privateUnreadTotal=Number(data.total)||0;unread={};
  for(const entry of data.bySender||[])unread[entry.sender]=Number(entry.count)||0;
  syncCount();
 }
@@ -139,9 +150,9 @@ async function refreshEverything(){
  if(refreshing||document.hidden)return;refreshing=true;
  try{
   await refreshContacts();
-  await Promise.all([refreshThreads(),refreshUnread()]);
+  await Promise.all([refreshThreads(),refreshGroups(),refreshUnread()]);
   renderList();
-  if(!float.hidden&&peer)refreshMessages();
+  if(!float.hidden&&(peer||groupId))refreshMessages();
  }catch(e){hint.textContent='메신저 목록을 불러올 수 없습니다: '+e.message}
  finally{refreshing=false}
 }
@@ -171,7 +182,7 @@ async function refreshMessages(){
   const items=data.messages||[];
   const signature=items.map(x=>x.id+':'+(x.readAt||'')).join(',');
   if(signature!==lastSignature){renderMessages(items);lastSignature=signature}
-  await Promise.all([refreshThreads(),refreshUnread()]);
+  await Promise.all([refreshThreads(),refreshGroups(),refreshUnread()]);
   renderList();
  }catch(e){status.textContent='대화 확인 오류: '+e.message}
  finally{loadingMessages=false}
