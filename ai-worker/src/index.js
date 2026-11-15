@@ -1,6 +1,6 @@
 // Pansooni Generative AI backend. PUBLIC 3D studio facts only.
 // Deploy only to a Cloudflare Workers Free account with Workers AI enabled.
-const MODEL = "@cf/google/gemma-4-26b-a4b-it";
+const MODEL = "@cf/meta/llama-3.1-8b-instruct-fast";
 
 const DOCUMENTS = [
   {id:"product-index", title:"제품분류", text:"3D 작업실 제품: C/S U바(ㄷ자), 아연 BASE, C/S L바, 코너카바, 평박공, 돌출박공, 용마루, 처마홈통, 앤드캡대용, 앤드캡 대용 물동, C/S 물끊기, 쪼인바."},
@@ -99,8 +99,8 @@ export default {
   try{
    const generated=await env.AI.run(MODEL,{
     messages:[{role:"system",content:system},...history,{role:"user",content:question}],
-    max_completion_tokens:350,temperature:0.2,
-    chat_template_kwargs:{enable_thinking:false}
+    max_tokens:280,
+    temperature:0.2
    });
    const answer=textReplyFromModel(generated).trim();
    if(!answer)return json({error:"empty_response"},502,allowed);
@@ -112,7 +112,8 @@ export default {
    const message=String(e?.message||"").slice(0,320);
    const category=code===429||/quota|limit|neurons|exceeded|credits/i.test(message)?'quota_or_rate_limit':
     /model|unsupported|not found|invalid model/i.test(message)?'model_unavailable':
-    /timeout|timed out|deadline/i.test(message)?'timeout':'inference_error';
+    /timeout|timed out|deadline/i.test(message)?'timeout':
+    /binding|permission|not enabled|not configured|authorization|forbidden/i.test(message)?'binding_or_permission':'inference_error';
    return json({error:category,message:"생성형 AI 응답 실패. 기존 사이트 정보로 안내합니다.",status:code||undefined},503,allowed);
   }
  }
