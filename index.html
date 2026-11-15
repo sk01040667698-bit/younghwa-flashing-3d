@@ -87,6 +87,8 @@ body.catalog-pending .floating-drawing,body.catalog-pending .float-show{display:
 .pansooni-fire-mascot{position:fixed;left:0;top:0;right:auto;bottom:auto;width:110px;height:110px;object-fit:contain;pointer-events:auto;cursor:grab;touch-action:none;user-select:none;-webkit-user-drag:none;z-index:35;filter:drop-shadow(0 4px 7px #0006);transform-origin:50% 100%;will-change:transform}
 .pansooni-fire-mascot.pansooni-walking{animation:pansooni-step .42s ease-in-out infinite alternate}
 .pansooni-fire-mascot.pansooni-dragging{animation:none!important;cursor:grabbing}
+.pansooni-fire-mascot.pansooni-message-alert{width:150px;height:160px;animation:none!important}
+@media(max-width:780px){.pansooni-fire-mascot.pansooni-message-alert{width:125px;height:135px}}
 @keyframes pansooni-step{from{translate:0 0}to{translate:0 -5px}}
 @media(max-width:780px){.pansooni-fire-mascot{width:80px;height:80px}}
 @media(prefers-reduced-motion:reduce){.pansooni-fire-mascot.pansooni-walking{animation:none}}
@@ -1844,8 +1846,10 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
   new URL('assets/pansooni-heart-dance-hq.webp',document.baseURI).href
  ];
  const fireSrc=new URL('assets/pansooni-fire.webp',document.baseURI).href;
+ const messageAlertSrc=new URL('assets/pansooni-message-alert.webp',document.baseURI).href;
  const reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
  let enabled=true,danceIndex=0,phase='dance',phaseMs=0,last=0;
+ let unreadAlert=false;
  let posX=0,posY=0,manualPosition=false,dragInfo=null;
  let timer=0,raf=0,currentSource='';
  try{
@@ -1874,8 +1878,16 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
  function source(src){
   if(mascot.getAttribute('src')!==src){mascot.src=src;currentSource=src}
  }
+ function showMessageAlert(){
+  phase='notification';phaseMs=0;
+  mascot.classList.remove('pansooni-walking');
+  mascot.classList.add('pansooni-message-alert');
+  source(messageAlertSrc);
+ }
  function showCurrentDance(){
+  if(unreadAlert){showMessageAlert();return}
   phase='dance';phaseMs=0;
+  mascot.classList.remove('pansooni-message-alert');
   source(danceSources[danceIndex]);
   mascot.classList.add('pansooni-walking');
  }
@@ -1888,6 +1900,17 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
   danceIndex=0;
   showCurrentDance();
  }
+ // Staff messenger signals only the unread state; message bodies are never sent here.
+ window.addEventListener('pansooni-messenger-unread',event=>{
+  const next=Boolean(event.detail?.unread);
+  if(unreadAlert===next)return;
+  unreadAlert=next;
+  if(enabled){
+   if(unreadAlert)showMessageAlert();
+   else{danceIndex=0;showCurrentDance()}
+   place();
+  }
+ });
  function place(){
   clampPosition();
   // Keep a subtle side step relative to the user's chosen location.
@@ -1909,7 +1932,7 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
   mascot.hidden=!enabled;
   stopLoop();
   if(!enabled){
-   mascot.classList.remove('pansooni-walking');
+   mascot.classList.remove('pansooni-walking','pansooni-message-alert');
    mascot.removeAttribute('src');currentSource='';
    return;
   }
