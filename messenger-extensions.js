@@ -134,6 +134,7 @@ export async function messengerExtensions({request,env,db,me,path,url,originOK})
   try{
    await db.prepare("INSERT INTO yh_messenger_files(id,kind,target_id,sender_id,name,mime,size,r2_key,created_at) VALUES(?,?,?,?,?,?,?,?,?)").bind(id,kind,target,myId,filename,ALLOWED_EXT[ext],bytes.length,key,now).run();
    if(kind==='group')await db.prepare("INSERT INTO yh_group_messages(group_id,sender_id,body,sent_at,attachment_id) VALUES(?,?,?,?,?)").bind(target,myId,'📎 '+filename,now,id).run();
+   else await db.prepare("INSERT INTO yh_private_file_reads(file_id,recipient_id,read_at) VALUES(?,?,NULL)").bind(id,target).run();
   }catch(e){await env.MESSENGER_FILES.delete(key);throw e}
   return json({ok:true,file:publicAttachment({id,name:filename,size:bytes.length,mime:ALLOWED_EXT[ext]})},201);
  }
