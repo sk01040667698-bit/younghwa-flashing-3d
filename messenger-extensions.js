@@ -125,6 +125,10 @@ export async function messengerExtensions({request,env,db,me,path,url,originOK})
   if(!validName(filename))return err('파일명이 올바르지 않습니다');
   const ext=extension(filename);
   if(!Object.hasOwn(ALLOWED_EXT,ext))return err('PDF, HWP, HWPX, DOC, DOCX 파일만 첨부할 수 있습니다');
+  // Reserve a conservative 1 GiB combined storage budget for staff attachments.
+  // This helps avoid unexpected charges on a shared Cloudflare Free account.
+  const storage=await db.prepare("SELECT COALESCE(SUM(size),0) AS total FROM yh_messenger_files").first();
+  if(Number(storage?.total||0)+sizeHeader>1024*1024*1024)return err('사내 메신저 파일 보관 한도(총 1GB)에 도달했습니다',413);
   // Read the file exactly once; Workers memory is limited, hence 10 MiB maximum.
   const bytes=new Uint8Array(await request.arrayBuffer());
   if(!bytes.length||bytes.length>MAX_FILE_BYTES)return err('파일은 10MB(10,240KB) 이하만 업로드할 수 있습니다',413);
