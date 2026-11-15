@@ -6,7 +6,7 @@
   "workers_dev": true,
   "ai": {"binding": "AI"},
   "vars": {
-    "SITE_ORIGIN": "https://sk01040667698-bit.github.io"
+    "SITE_ORIGIN": "https://donghyun-3d.pages.dev"
   },
   "ratelimits": [
     {"name": "GLOBAL_LIMIT", "namespace_id": "771101", "simple": {"limit": 15, "period": 60}},
