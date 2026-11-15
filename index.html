@@ -1704,8 +1704,8 @@ positionFloatDefault();
 
 refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
 </script><img class="pansooni-fire-mascot" src="assets/pansooni-dance-restored.webp" alt="좌우로 춤추다가 불을 뿜는 판순이" width="108" height="108" draggable="false"><script>
-/* Three separately preserved dances: 1 original, 2 back-facing hip wiggle,
-   3 BAD short-limbed mascot. Users can drag to position, ON/OFF persists. */
+/* Four preserved dances: 1 original, 2 hip wiggle, 3 BAD, 4 short-arm heart.
+   Users can click to chat or drag to reposition. ON/OFF persists. */
 (function(){
  const mascot=document.querySelector('.pansooni-fire-mascot');
  const toggle=document.getElementById('pansooniToggle');
@@ -1716,7 +1716,8 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
  const danceSources=[
   new URL('assets/pansooni-dance-restored.webp',document.baseURI).href,
   new URL('assets/pansooni-hip-selected.webp',document.baseURI).href,
-  new URL('assets/pansooni-bad-selected.webp',document.baseURI).href
+  new URL('assets/pansooni-bad-selected.webp',document.baseURI).href,
+  new URL('assets/pansooni-heart-dance.webp',document.baseURI).href
  ];
  const fireSrc=new URL('assets/pansooni-fire.webp',document.baseURI).href;
  const reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -1800,9 +1801,9 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
   if(!dragInfo&&!document.body.classList.contains('is-rotating-3d')&&!reduced.matches){
    phaseMs+=dt;
    if(phase==='dance'&&phaseMs>=8000){
-    // A fire flourish only once after the third dance; individual dances remain intact.
-    if(danceIndex===2)showFire();
-    else{danceIndex=(danceIndex+1)%3;showCurrentDance()}
+    // All four dances play in order; fire flourish follows the fourth dance.
+    if(danceIndex===3)showFire();
+    else{danceIndex=(danceIndex+1)%danceSources.length;showCurrentDance()}
    }else if(phase==='fire'&&phaseMs>=1100){
     danceIndex=0;
     showCurrentDance();
