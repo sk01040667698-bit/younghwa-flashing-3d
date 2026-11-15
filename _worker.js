@@ -1,4 +1,5 @@
 import pansooniAI from "./ai-worker/src/index.js";
+import {messengerExtensions} from "./messenger-extensions.js";
 /* Configuration activation deployment: ACCESS_DB and ADMIN_PASSWORD required. */
 /* YOUNGHWA employee browser approval; Cloudflare Pages advanced mode.
  Bind ACCESS_DB (D1) and ADMIN_PASSWORD (encrypted environment secret).
@@ -36,6 +37,13 @@ async function setup(db){
  await db.prepare("CREATE INDEX IF NOT EXISTS yh_private_inbox ON yh_private_messages(recipient_id,read_at,id)").run();
  await db.prepare("CREATE INDEX IF NOT EXISTS yh_private_thread ON yh_private_messages(sender_id,recipient_id,id)").run();
  await db.prepare("CREATE TABLE IF NOT EXISTS yh_messenger_presence(device_id TEXT PRIMARY KEY,last_seen INTEGER NOT NULL)").run();
+ await db.prepare("CREATE TABLE IF NOT EXISTS yh_groups(id TEXT PRIMARY KEY,name TEXT NOT NULL,created_by TEXT NOT NULL,created_at TEXT NOT NULL)").run();
+ await db.prepare("CREATE TABLE IF NOT EXISTS yh_group_members(group_id TEXT NOT NULL,member_id TEXT NOT NULL,joined_at TEXT NOT NULL,last_read_id INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(group_id,member_id))").run();
+ await db.prepare("CREATE INDEX IF NOT EXISTS yh_group_member_account ON yh_group_members(member_id,group_id)").run();
+ await db.prepare("CREATE TABLE IF NOT EXISTS yh_group_messages(id INTEGER PRIMARY KEY AUTOINCREMENT,group_id TEXT NOT NULL,sender_id TEXT NOT NULL,body TEXT NOT NULL,sent_at TEXT NOT NULL,attachment_id TEXT)").run();
+ await db.prepare("CREATE INDEX IF NOT EXISTS yh_group_messages_room ON yh_group_messages(group_id,id)").run();
+ await db.prepare("CREATE TABLE IF NOT EXISTS yh_messenger_files(id TEXT PRIMARY KEY,kind TEXT NOT NULL,target_id TEXT NOT NULL,sender_id TEXT NOT NULL,name TEXT NOT NULL,mime TEXT NOT NULL,size INTEGER NOT NULL,r2_key TEXT NOT NULL,created_at TEXT NOT NULL)").run();
+ await db.prepare("CREATE INDEX IF NOT EXISTS yh_messenger_files_target ON yh_messenger_files(kind,target_id,created_at)").run();
  schemaInitialized=true;
 }
 async function browser(r,db){const token=cookie(r,'yh_device');return /^[a-f0-9]{64}$/.test(token)?db.prepare('SELECT * FROM yh_browsers WHERE id=?').bind(await digest(token)).first():null}
@@ -153,6 +161,8 @@ export default {
     if(!authorized&&(!device||device.status!=='approved'))return fail('승인된 직원만 메신저를 사용할 수 있습니다',401);
     const me=authorized?{id:'admin',name:'관리자',department:'관리',pc:'관리자 계정'}:device;
     const myId=me.id;
+    const extensionResult=await messengerExtensions({request,env,db,me,path:p,url:u,originOK:()=>originOK(request)});
+    if(extensionResult)return extensionResult;
     const peerOK=async peer=>{
      if(typeof peer!=='string'||peer===myId)return false;
      if(peer==='admin')return true;
