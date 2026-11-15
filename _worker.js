@@ -1,3 +1,4 @@
+import pansooniAI from "./ai-worker/src/index.js";
 /* Configuration activation deployment: ACCESS_DB and ADMIN_PASSWORD required. */
 /* YOUNGHWA employee browser approval; Cloudflare Pages advanced mode.
  Bind ACCESS_DB (D1) and ADMIN_PASSWORD (encrypted environment secret).
@@ -97,6 +98,23 @@ export default {
     const html=await r.text();
     const versions=[...new Set(html.match(/v3\.\d{2}/g)||[])];
     return json({workerBuild:'diagnostic-2026-11-14-public',assetHttpStatus:r.status,assetVersions:versions,hasInternalAngle:html.includes('오른쪽 사선 내각')});
+   }
+   // Pansooni AI uses the existing advanced-mode Worker, not Pages Functions.
+   // Apply the SAME employee approval gate as the protected site.
+   if(p==='/api/chat'&&(m==='GET'||m==='POST')){
+    phase='PANSOONI_AI_AUTH';
+    if(!authorized){
+     const approvedDevice=await browser(request,db);
+     if(!approvedDevice||approvedDevice.status!=='approved')return fail('로그인이 필요합니다',401);
+    }
+    if(m==='GET')return json({ok:Boolean(env.AI),mode:env.AI?'generative':'faq',scope:'donghyun-3d.pages.dev'});
+    if(!originOK(request))return fail('잘못된 요청',403);
+    if(!env.AI)return json({error:'ai_binding_missing',message:'Workers AI 바인딩이 필요합니다'},503);
+    phase='PANSOONI_AI_INFERENCE';
+    const target=new URL(request.url);
+    target.pathname='/chat';
+    const proxy=new Request(target,request);
+    return pansooniAI.fetch(proxy,{...env,SITE_ORIGIN:u.origin});
    }
    if(p.startsWith('/api/'))return fail('없는 경로',404);
    if(m!=='GET'&&m!=='HEAD')return fail('허용되지 않은 요청',405);
