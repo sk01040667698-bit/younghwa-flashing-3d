@@ -1955,7 +1955,7 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
    const result=await fetch(aiEndpoint+'/chat',{
     method:'POST',headers:{'content-type':'application/json'},
     body:JSON.stringify({question:q,history:history.slice(-4)}),
-    signal:controller.signal,credentials:'omit',cache:'no-store'
+    signal:controller.signal,credentials:'same-origin',cache:'no-store'
    });
    const data=await result.json();
    if(!result.ok||typeof data.answer!=='string'||!data.answer.trim())throw Error(data.error||'connection_error');
