@@ -141,6 +141,11 @@ body.catalog-pending .floating-drawing,body.catalog-pending .float-show{display:
 .pansooni-messenger-contact{padding:10px 10px 5px;flex:0 0 auto}
 .pansooni-messenger-contact label{display:block;font-size:11px;color:#b7cfe0;margin-bottom:6px}
 .pansooni-messenger-contact select{width:100%;font-size:12px;border-radius:7px;border:1px solid #536e81;background:#223749;color:#edf5fc;padding:8px;min-width:0}
+.pansooni-peer-presence{display:flex;align-items:center;gap:6px;margin-top:7px;font-size:11px;color:#b8c9d4}
+.pansooni-peer-presence[hidden]{display:none!important}
+.pansooni-presence-dot{width:8px;height:8px;border-radius:50%;background:#8799a5;display:inline-block;flex:0 0 auto}
+.pansooni-presence-dot.online{background:#27d976;box-shadow:0 0 0 3px rgba(39,217,118,.12)}
+
 .pansooni-messenger-notice{font-size:11px;color:#adc3d1;padding:4px 11px 8px;line-height:1.5;flex:0 0 auto}
 .pansooni-messenger-thread{flex:1;min-height:0;overflow-y:auto;padding:9px 10px;display:flex;flex-direction:column;gap:8px;overscroll-behavior:contain}
 .pansooni-messenger-message{max-width:92%;padding:8px 10px;border-radius:11px;background:#2a4559;align-self:flex-start;overflow-wrap:anywhere}
@@ -1900,7 +1905,7 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
 <form id="pansooniChatForm" class="pansooni-chat-form"><input id="pansooniChatInput" type="text" maxlength="300" autocomplete="off" aria-label="제품 정보 질문" placeholder="제품·규격·사용법을 자유롭게 질문하세요"><button type="submit">보내기</button></form>
 <div class="pansooni-chat-limit">이 3D 사이트에 등록된 공개 정보만 안내합니다. 회사 기밀·개인정보는 입력하지 마세요.</div>
 <section id="pansooniMessenger" class="pansooni-messenger-panel" aria-label="승인된 직원끼리 사용하는 개인 메신저" hidden>
-<div class="pansooni-messenger-contact"><label for="pansooniPeerSelect">받는 직원 선택</label><select id="pansooniPeerSelect"><option value="">메시지 보낼 직원 선택</option></select></div>
+<div class="pansooni-messenger-contact"><label for="pansooniPeerSelect">받는 직원 선택</label><select id="pansooniPeerSelect"><option value="">메시지 보낼 직원 선택</option></select><div id="pansooniPeerPresence" class="pansooni-peer-presence" hidden><span id="pansooniPeerPresenceDot" class="pansooni-presence-dot"></span><span id="pansooniPeerPresenceText">접속 상태 확인 중</span></div></div>
 <div id="pansooniPeerStatus" class="pansooni-messenger-notice" aria-live="polite">상대방을 선택해 주세요.</div>
 <div id="pansooniThread" class="pansooni-messenger-thread" aria-label="나와 선택한 상대방의 대화" role="log"></div>
 <form id="pansooniMessengerForm" class="pansooni-messenger-form"><input id="pansooniMessengerInput" type="text" maxlength="1000" autocomplete="off" aria-label="개인 메시지 입력" placeholder="1:1 메시지 작성"><button type="submit">전송</button></form>
