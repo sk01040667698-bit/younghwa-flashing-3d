@@ -1711,7 +1711,6 @@ refreshModelUI();new ResizeObserver(resize).observe(canvas);resize()})();
    posX=stored.x;posY=stored.y;manualPosition=true;
   }
  }catch(_){}
- styleSelect.value=selection;
  function dimensions(){return {width:mascot.offsetWidth||((window.innerWidth<=780)?80:110),height:mascot.offsetHeight||((window.innerWidth<=780)?80:110)}}
  function clampPosition(){
   const {width,height}=dimensions();
