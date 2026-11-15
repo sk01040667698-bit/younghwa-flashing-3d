@@ -44,6 +44,8 @@ async function setup(db){
  await db.prepare("CREATE INDEX IF NOT EXISTS yh_group_messages_room ON yh_group_messages(group_id,id)").run();
  await db.prepare("CREATE TABLE IF NOT EXISTS yh_messenger_files(id TEXT PRIMARY KEY,kind TEXT NOT NULL,target_id TEXT NOT NULL,sender_id TEXT NOT NULL,name TEXT NOT NULL,mime TEXT NOT NULL,size INTEGER NOT NULL,r2_key TEXT NOT NULL,created_at TEXT NOT NULL)").run();
  await db.prepare("CREATE INDEX IF NOT EXISTS yh_messenger_files_target ON yh_messenger_files(kind,target_id,created_at)").run();
+ await db.prepare("CREATE TABLE IF NOT EXISTS yh_private_file_reads(file_id TEXT PRIMARY KEY,recipient_id TEXT NOT NULL,read_at TEXT)").run();
+ await db.prepare("CREATE INDEX IF NOT EXISTS yh_private_file_unread ON yh_private_file_reads(recipient_id,read_at)").run();
  schemaInitialized=true;
 }
 async function browser(r,db){const token=cookie(r,'yh_device');return /^[a-f0-9]{64}$/.test(token)?db.prepare('SELECT * FROM yh_browsers WHERE id=?').bind(await digest(token)).first():null}
@@ -189,7 +191,11 @@ export default {
     if(p==='/api/messenger/unread'&&m==='GET'){
      const totals=await db.prepare("SELECT sender_id AS sender,COUNT(*) AS count FROM yh_private_messages WHERE recipient_id=? AND read_at IS NULL GROUP BY sender_id LIMIT 300").bind(myId).all();
      const bySender=(totals.results||[]).map(x=>({sender:x.sender,count:Number(x.count)||0}));
-     return json({total:bySender.reduce((acc,x)=>acc+x.count,0),bySender});
+     const fileTotals=await db.prepare("SELECT f.sender_id AS sender,COUNT(*) AS count FROM yh_private_file_reads r JOIN yh_messenger_files f ON r.file_id=f.id WHERE r.recipient_id=? AND r.read_at IS NULL GROUP BY f.sender_id LIMIT 300").bind(myId).all();
+     const map=new Map(bySender.map(x=>[x.sender,x.count]));
+     for(const row of fileTotals.results||[])map.set(row.sender,(map.get(row.sender)||0)+(Number(row.count)||0));
+     const combined=[...map].map(([sender,count])=>({sender,count}));
+     return json({total:combined.reduce((acc,x)=>acc+x.count,0),bySender:combined});
     }
     if(p==='/api/messenger/threads'&&m==='GET'){
      // Only messages sent or received by this authenticated browser/account.
@@ -200,7 +206,13 @@ export default {
       const other=message.sender_id===myId?message.recipient_id:message.sender_id;
       if(!byPeer.has(other))byPeer.set(other,{peer:other,lastBody:message.body.slice(0,120),lastAt:message.sent_at,sentByMe:message.sender_id===myId});
      }
-     return json({threads:[...byPeer.values()].slice(0,100)});
+     const fileThreads=await db.prepare("SELECT sender_id,target_id,name,created_at FROM yh_messenger_files WHERE kind='private' AND (sender_id=? OR target_id=?) ORDER BY created_at DESC LIMIT 300").bind(myId,myId).all();
+     for(const f of fileThreads.results||[]){
+      const other=f.sender_id===myId?f.target_id:f.sender_id;
+      const previous=byPeer.get(other);
+      if(!previous||String(f.created_at)>String(previous.lastAt))byPeer.set(other,{peer:other,lastBody:'📎 '+f.name,lastAt:f.created_at,sentByMe:f.sender_id===myId});
+     }
+     return json({threads:[...byPeer.values()].sort((a,b)=>String(b.lastAt).localeCompare(String(a.lastAt))).slice(0,100)});
     }
     if(p==='/api/messenger/messages'&&m==='GET'){
      const peer=u.searchParams.get('peer');
@@ -208,6 +220,7 @@ export default {
      const now=new Date().toISOString();
      // Reading a thread is the only action that marks it read.
      await db.prepare("UPDATE yh_private_messages SET read_at=? WHERE recipient_id=? AND sender_id=? AND read_at IS NULL").bind(now,myId,peer).run();
+     await db.prepare("UPDATE yh_private_file_reads SET read_at=? WHERE recipient_id=? AND read_at IS NULL AND file_id IN (SELECT id FROM yh_messenger_files WHERE sender_id=? AND target_id=? AND kind='private')").bind(now,myId,peer,myId).run();
      const result=await db.prepare("SELECT id,sender_id AS sender,recipient_id AS recipient,body,sent_at AS sentAt,read_at AS readAt FROM yh_private_messages WHERE (sender_id=? AND recipient_id=?) OR (sender_id=? AND recipient_id=?) ORDER BY id DESC LIMIT 100").bind(myId,peer,peer,myId).all();
      return json({peer,messages:(result.results||[]).reverse()});
     }
