@@ -1256,13 +1256,16 @@ function drawGutterOpaque(profile=gutterProfilePoints()){
  for(const i of [0,points.length-1]){
   addFace([[...outer[i],z0],[...inner[i],z0],[...inner[i],z1],[...outer[i],z1]],edge);
  }
- /* Supersample the depth-tested image before downscaling. The former
-    1050px/850px cap produced obvious jagged, blocky edges on desktop. */
- const deviceRatio=canvas.width/Math.max(1,canvas.clientWidth);
- const renderRatio=fast3DPreview?0.9:Math.max(1,Math.min(Math.max(1.5,deviceRatio),2,
-   2400/Math.max(1,canvas.clientWidth),1600/Math.max(1,canvas.clientHeight)));
- const W=Math.max(1,Math.round(canvas.clientWidth*renderRatio));
- const H=Math.max(1,Math.round(canvas.clientHeight*renderRatio));
+ /* Match the smooth edges of the canvas-drawn C/S U-bar and zinc BASE.
+    During manipulation keep the lightweight preview; once released, use
+    3x supersampling (bounded by a memory budget) for pixel-rasterized parts. */
+ const viewW=Math.max(1,canvas.clientWidth),viewH=Math.max(1,canvas.clientHeight);
+ const qualityScale=Math.min(3,
+   3600/viewW,2400/viewH,
+   Math.sqrt(5500000/(viewW*viewH)));
+ const renderRatio=fast3DPreview?0.9:Math.max(1,qualityScale);
+ const W=Math.max(1,Math.round(viewW*renderRatio));
+ const H=Math.max(1,Math.round(viewH*renderRatio));
  const layer=document.createElement('canvas');layer.width=W;layer.height=H;
  const layerCtx=layer.getContext('2d'),pixels=layerCtx.createImageData(W,H),buf=pixels.data;
  const zBuffer=new Float32Array(W*H);zBuffer.fill(-Infinity);
