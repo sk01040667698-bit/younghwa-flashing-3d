@@ -752,8 +752,9 @@ function gutter215ProfilePoints(){
  const main=gutter215MainPoints(),v=values;
  const p0=main[0],p7=main[7];
  const a=main[1],dx=a[0]-p0[0],dy=a[1]-p0[1],d=Math.hypot(dx,dy)||1;
- const hemLeft=[p0[0]+v.g215HemLeft*dx/d,p0[1]+v.g215HemLeft*dy/d];
- const hemRight=[p7[0]+v.g215HemRight,p7[1]];
+ const gap=Math.max(1.2,Math.min(2.4,v.thickness*3));
+ const hemLeft=[p0[0]+v.g215HemLeft*dx/d-gap*dy/d,p0[1]+v.g215HemLeft*dy/d+gap*dx/d];
+ const hemRight=[p7[0]+v.g215HemRight,p7[1]-gap];
  return [hemLeft,...main,hemRight];
 }
 function renderGutter215Diagram(){
