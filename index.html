@@ -764,7 +764,21 @@ function renderGutter215Diagram(){
  const sc=Math.min(235/Math.max(1,xMax-xMin),180/Math.max(1,yMax-yMin));
  const X=p=>33+(p[0]-xMin)*sc,Y=p=>218-(p[1]-yMin)*sc;
  const f=n=>Number(n.toFixed(2));
- const path=points.map((p,i)=>(i?'L ':'M ')+f(X(p))+' '+f(Y(p))).join(' ');
+ /* Show the two 10mm inward returns clearly in the small 2D preview.
+    This is a drawing-only exaggeration; 3D geometry and true dimensions
+    continue to use gutter215ProfilePoints() without modification. */
+ const leftTip=main[0],leftNext=main[1],rightTip=main[main.length-1];
+ const dx=leftNext[0]-leftTip[0],dy=leftNext[1]-leftTip[1],len=Math.hypot(dx,dy)||1;
+ const returnDisplayLength=Math.max(v.g215HemLeft,17/sc);
+ const rightDisplayLength=Math.max(v.g215HemRight,17/sc);
+ const visualGap=6/sc;
+ const drawnPoints=[
+  [leftTip[0]+returnDisplayLength*dx/len-visualGap*dy/len,
+   leftTip[1]+returnDisplayLength*dy/len+visualGap*dx/len],
+  ...main,
+  [rightTip[0]+rightDisplayLength,rightTip[1]-visualGap]
+ ];
+ const path=drawnPoints.map((p,i)=>(i?'L ':'M ')+f(X(p))+' '+f(Y(p))).join(' ');
  const dims=[v.g215LeftSlope,v.g215LeftHeight,v.g215Bottom,v.g215RightHeight,v.g215StepOut,v.g215StepUp,v.g215TopIn];
  const offs=[[-4,-12],[-19,0],[0,18],[-20,0],[0,15],[19,0],[0,-12]];
  const text=dims.map((dim,i)=>{
@@ -773,9 +787,8 @@ function renderGutter215Diagram(){
  }).join('');
  document.getElementById('sectionDrawing').innerHTML=
  '<svg viewBox="0 0 300 355" xmlns="http://www.w3.org/2000/svg" aria-label="처마홈통 215 양쪽 안쪽 접힘 단면도">'
- +'<path d="'+path+'" fill="none" stroke="#30363b" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/>'
+ +'<path d="'+path+'" fill="none" stroke="#30363b" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/>'
  +'<g fill="#304657" font-family="Arial,Malgun Gothic,sans-serif" font-size="12" font-weight="700" text-anchor="middle">'+text+'</g>'
- +'<text x="10" y="18" fill="#465d6c" font-family="Arial,Malgun Gothic,sans-serif" font-size="10.5">양쪽 안쪽 180° 되접힘 · 각 10mm</text>'
  +'<path d="M 19 251 V 327" stroke="#3f6073" stroke-width="3"/>'
  +'<g fill="#263e4d" font-family="Arial,Malgun Gothic,sans-serif" font-size="15" font-weight="700">'
  +'<text x="32" y="272">제품 길이 : '+v.length+' mm</text>'
