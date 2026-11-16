@@ -764,21 +764,30 @@ function renderGutter215Diagram(){
  const sc=Math.min(235/Math.max(1,xMax-xMin),180/Math.max(1,yMax-yMin));
  const X=p=>33+(p[0]-xMin)*sc,Y=p=>218-(p[1]-yMin)*sc;
  const f=n=>Number(n.toFixed(2));
- /* Show the two 10mm inward returns clearly in the small 2D preview.
-    This is a drawing-only exaggeration; 3D geometry and true dimensions
-    continue to use gutter215ProfilePoints() without modification. */
- const leftTip=main[0],leftNext=main[1],rightTip=main[main.length-1];
- const dx=leftNext[0]-leftTip[0],dy=leftNext[1]-leftTip[1],len=Math.hypot(dx,dy)||1;
- const returnDisplayLength=Math.max(v.g215HemLeft,17/sc);
- const rightDisplayLength=Math.max(v.g215HemRight,17/sc);
- const visualGap=6/sc;
- const drawnPoints=[
-  [leftTip[0]+returnDisplayLength*dx/len-visualGap*dy/len,
-   leftTip[1]+returnDisplayLength*dy/len+visualGap*dx/len],
-  ...main,
-  [rightTip[0]+rightDisplayLength,rightTip[1]-visualGap]
- ];
- const path=drawnPoints.map((p,i)=>(i?'L ':'M ')+f(X(p))+' '+f(Y(p))).join(' ');
+ /* 2D-only: render both 180-degree inward hems as parallel return legs
+    with a small rounded bend, matching the other section drawings.
+    Actual 10mm return dimensions and the 3D profile remain unchanged. */
+ const svgPoint=p=>[X(p),Y(p)];
+ const leftTip=svgPoint(main[0]),leftNext=svgPoint(main[1]);
+ const rightTip=svgPoint(main[main.length-1]);
+ const vx=leftNext[0]-leftTip[0],vy=leftNext[1]-leftTip[1];
+ const mag=Math.hypot(vx,vy)||1,ux=vx/mag,uy=vy/mag;
+ const gap=3.3,hemLength=17;
+ /* The inner leg runs back along the original sheet, not diagonally. */
+ const leftOffset=[-uy*gap,ux*gap];
+ const leftReturn=[leftTip[0]+ux*hemLength+leftOffset[0],
+                   leftTip[1]+uy*hemLength+leftOffset[1]];
+ const leftBend=[leftTip[0]+leftOffset[0],leftTip[1]+leftOffset[1]];
+ const rightBend=[rightTip[0],rightTip[1]+gap];
+ const rightReturn=[rightTip[0]+hemLength,rightTip[1]+gap];
+ const path='M '+f(leftReturn[0])+' '+f(leftReturn[1])
+  +' L '+f(leftBend[0])+' '+f(leftBend[1])
+  +' Q '+f(leftTip[0]-ux*2.5)+' '+f(leftTip[1]-uy*2.5)
+  +' '+f(leftTip[0])+' '+f(leftTip[1])
+  +main.slice(1).map(p=>' L '+f(X(p))+' '+f(Y(p))).join('')
+  +' Q '+f(rightTip[0]-3)+' '+f(rightTip[1]+gap*.5)
+  +' '+f(rightBend[0])+' '+f(rightBend[1])
+  +' L '+f(rightReturn[0])+' '+f(rightReturn[1]);
  const dims=[v.g215LeftSlope,v.g215LeftHeight,v.g215Bottom,v.g215RightHeight,v.g215StepOut,v.g215StepUp,v.g215TopIn];
  const offs=[[-4,-12],[-19,0],[0,18],[-20,0],[0,15],[19,0],[0,-12]];
  const text=dims.map((dim,i)=>{
