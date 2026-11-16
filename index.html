@@ -772,9 +772,9 @@ function renderGutter215Diagram(){
  const rightTip=svgPoint(main[main.length-1]);
  const vx=leftNext[0]-leftTip[0],vy=leftNext[1]-leftTip[1];
  const mag=Math.hypot(vx,vy)||1,ux=vx/mag,uy=vy/mag;
- const gap=3.3,hemLength=17;
- /* The inner leg runs back along the original sheet, not diagonally. */
- const leftOffset=[-uy*gap,ux*gap];
+ const gap=3.3,hemLength=12;
+ /* Return leg points toward the gutter interior (upper-right of the left slope). */
+ const leftOffset=[uy*gap,-ux*gap];
  const leftReturn=[leftTip[0]+ux*hemLength+leftOffset[0],
                    leftTip[1]+uy*hemLength+leftOffset[1]];
  const leftBend=[leftTip[0]+leftOffset[0],leftTip[1]+leftOffset[1]];
