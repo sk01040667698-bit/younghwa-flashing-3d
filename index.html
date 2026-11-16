@@ -1486,7 +1486,7 @@ function drawGutterOpaque(profile=gutterProfilePoints()){
  const coated=steelColors[selectedSteelCode],gray='#777777',edge='#aeb1ac';
  /* Protruding gable's open-section orientation is opposite to gutters:
     put the previously inward-facing color on the outward-facing side. */
- const isGableModel=selectedModel==='joinBar'||selectedModel==='csDrip'||selectedModel==='gable50'||selectedModel==='gable75'||selectedModel==='gable100'||selectedModel.startsWith('flatGable')||(selectedModel.startsWith('csL')&&!selectedModel.startsWith('csLOuter'));
+ const isGableModel=selectedModel==='joinBar'||selectedModel==='csDrip'||selectedModel==='gable50'||selectedModel==='gable75'||selectedModel==='gable100'||selectedModel==='gable150'||selectedModel.startsWith('flatGable')||(selectedModel.startsWith('csL')&&!selectedModel.startsWith('csLOuter'));
  const frontColor=isGableModel?gray:coated;
  const backColor=isGableModel?coated:gray;
  for(let i=0;i<points.length-1;i++){
