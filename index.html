@@ -1187,10 +1187,18 @@ function renderGableDiagram(){
   const a=point(i),b=point(i+1);
   return '<text x="'+fmt((a[0]+b[0])/2+dx)+'" y="'+fmt((a[1]+b[1])/2+dy)+'">'+n+'</text>';
  }).join('');
+ /* Label the two inward-return lengths independently of the main 7 segments.
+    Offsets keep both 10mm labels legible near their actual folded ends. */
+ const upperHem=point(7),lowerHem=point(0);
+ const hemLabels='<g fill="#304657" font-family="Arial,Malgun Gothic,sans-serif" font-size="11.5" font-weight="700" text-anchor="middle">'
+  +'<text x="'+fmt(upperHem[0]+13)+'" y="'+fmt(upperHem[1]+22)+'">'+v.gableHemTop+'</text>'
+  +'<text x="'+fmt(lowerHem[0]+18)+'" y="'+fmt(lowerHem[1]+28)+'">'+v.gableHemLip+'</text>'
+  +'</g>';
  document.getElementById('sectionDrawing').innerHTML=
  '<svg viewBox="0 0 300 340" xmlns="http://www.w3.org/2000/svg" aria-label="'+modelNames[selectedModel]+' 단면도. 양쪽 안쪽 180도 접힘">'
  +'<path d="'+path+'" fill="none" stroke="#30363b" stroke-width="2.7" stroke-linejoin="round" stroke-linecap="round"/>'
  +'<g fill="#304657" font-family="Arial,Malgun Gothic,sans-serif" font-size="12" font-weight="700" text-anchor="middle">'+numbers+'</g>'
+ +hemLabels
  +'<path d="M 19 252 V 327" stroke="#3f6073" stroke-width="3"/>'
  +'<g fill="#263e4d" font-family="Arial,Malgun Gothic,sans-serif" font-size="15" font-weight="700">'
  +'<text x="32" y="272">제품 길이 : '+v.length+' mm</text>'
