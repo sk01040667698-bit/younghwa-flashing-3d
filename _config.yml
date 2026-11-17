@@ -1,0 +1,15 @@
+# The studio requires the Cloudflare Worker. Never publish executable model
+# documents through the old, unauthenticated GitHub Pages/Jekyll deployment.
+exclude:
+  - index.html
+  - _worker.js
+  - portal-3d.js
+  - portal-3d.test.mjs
+  - ai-worker
+  - functions
+  - assets
+  - messenger-extensions.js
+  - pansooni-ai-config.js
+  - pansooni-messenger.js
+  - pansooni-pane-drag.js
+  - MESSENGER-GROUP-FILES-SETUP.md
