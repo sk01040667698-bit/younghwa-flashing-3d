@@ -1,3 +1,4 @@
+import {portalStudio,PORTAL} from './portal-3d.js';
 import pansooniAI from "./ai-worker/src/index.js";
 import {messengerExtensions} from "./messenger-extensions.js";
 /* Configuration activation deployment: ACCESS_DB and ADMIN_PASSWORD required. */
@@ -77,6 +78,8 @@ const adminPage=()=>page('영화 후레싱 3D 관리자','<div class="kicker">YO
 export default {
  async fetch(request,env){
   const u=new URL(request.url),p=u.pathname,m=request.method,db=env.ACCESS_DB;
+  // Dedicated signed requests do not use the independent legacy browser approval.
+  if(p.startsWith('/portal-3d/'))return portalStudio(request,env);
   let phase='START';
   try{
    if(!db)return page('설정 점검','<div class="kicker">YOUNGHWA · STAFF ACCESS</div><h1>데이터베이스 연결 확인 필요</h1><p>Production의 ACCESS_DB가 배포에 반영되지 않았습니다.</p>');
@@ -269,6 +272,10 @@ export default {
    if(m!=='GET'&&m!=='HEAD')return fail('허용되지 않은 요청',405);
    const approvedDevice=authorized?null:await browser(request,db);
    if(!authorized&&(!approvedDevice||approvedDevice.status!=='approved'))return Response.redirect(u.origin+'/access',302);
+   // Legacy approvals must not bypass platform feature grants. Only the external
+   // administrator retains full maintenance access; employee records stay intact.
+   const sharedAsset=/^\/assets\/[a-zA-Z0-9_-]+\.(?:webp|png|gif)$/.test(p)||['/pansooni-messenger.js','/pansooni-pane-drag.js','/pansooni-ai-config.js'].includes(p);
+   if(!authorized&&!sharedAsset)return Response.redirect(PORTAL+'/accessories',302);
    const asset=await env.ASSETS.fetch(request),h=new Headers(asset.headers);h.set('Cache-Control','private,no-store');
    if(asset.ok&&m==='GET'){
     const actor=authorized?auditAdmin:approvedDevice;
