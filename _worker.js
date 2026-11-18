@@ -1,3 +1,4 @@
+import {studioSession} from './studio-session.js';
 import {portalStudio,PORTAL} from './portal-3d.js';
 import pansooniAI from "./ai-worker/src/index.js";
 import {messengerExtensions} from "./messenger-extensions.js";
@@ -78,6 +79,7 @@ const adminPage=()=>page('영화 후레싱 3D 관리자','<div class="kicker">YO
 export default {
  async fetch(request,env){
   const u=new URL(request.url),p=u.pathname,m=request.method,db=env.ACCESS_DB;
+  if(p.startsWith('/studio/'))return studioSession(request,env);
   // Dedicated signed requests do not use the independent legacy browser approval.
   if(p.startsWith('/portal-3d/'))return portalStudio(request,env);
   let phase='START';
@@ -290,3 +292,4 @@ export default {
   }
  }
 };
+
