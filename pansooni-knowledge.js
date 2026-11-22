@@ -1,3 +1,4 @@
+import {tableAnswer} from './pansooni-table.js';
 import {PORTAL} from './portal-3d.js';
 const intent=/내화|복합자재|인정(?:서|번호)|시험성적|(?:FR-)?[WR]P\d{2}-|FF-[A-Z]+\d{2}-/i;
 const normalize=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/\s+/g,'');
@@ -56,7 +57,15 @@ export async function knowledgeAnswer(payload,grant,env){
  const listing=await portal(grant.callback,{action:'knowledge-list'});
  if(listing.status===403)return response('내화구조·복합자재 자료 열람 권한을 확인해 주세요. 현재 직원 권한으로 자료를 제공할 수 없습니다.');
  if(!listing.ok)return response('플랫폼 자료 연결을 확인하지 못했습니다. 잠시 후 다시 질문해 주세요.');
- const {documents,asOf}=await listing.json();if(!Array.isArray(documents))throw Error('catalog');
+ const {documents,asOf,revision}=await listing.json();if(!Array.isArray(documents))throw Error('catalog');
+ const tabular=await tableAnswer(payload,documents,asOf,plan,env.AI);
+ if(tabular){
+  const checked=await portal(grant.callback,{action:'knowledge-list'});
+  if(!checked.ok)return response('자료 열람 권한이 변경되었습니다. 플랫폼에서 다시 열어 주세요.');
+  const latest=await checked.json();
+  if(latest.revision!==revision||latest.asOf!==asOf)return response('답변 준비 중 표가 변경되었습니다. 다시 질문해 주세요.');
+  return response(tabular);
+ }
  const summary=summarizeCatalog(documents,plan,asOf);
  if(plan.action==='count')return response(summary.answer);
  if(plan.action==='exists'){
