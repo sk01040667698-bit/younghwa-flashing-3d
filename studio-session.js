@@ -32,10 +32,23 @@ async function session(request,db,kind){
  if(!result||result.kind!==kind||result.expires!==row.expires){await db.prepare('DELETE FROM yh_portal_studio_sessions WHERE token_hash=?').bind(hash).run();return null;}
  return row;
 }
-export function studioShell(kind){
+// Only presentation code is selected; model and messenger code stay isolated.
+const mascotFiles=new Set(['pansooni-dance-restored.webp','pansooni-hip-selected.webp','pansooni-bad-selected.webp','pansooni-heart-dance-hq.webp','pansooni-fire.webp','pansooni-message-alert.webp']);
+function mascotMarkup(html,kind,nonce){
+ const scripts=[...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map(m=>m[1]);
+ const dance=scripts.filter(s=>s.includes('/* Four preserved dances:'));
+ const opacity=scripts.filter(s=>s.includes('/* Store character visibility separately from opacity;'));
+ const toggle=html.match(/<button[^>]+id="pansooniToggle"[\s\S]*?<\/button>/)?.[0];
+ const slider=html.match(/<label[^>]*class="pansooni-opacity-control"[\s\S]*?<\/label>/)?.[0];
+ if(dance.length!==1||opacity.length!==1||!toggle||!slider)return '';
+ const css=`.studio-mascot-controls{position:fixed;top:8px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;z-index:140;background:#172d3e;border:1px solid #59748a;border-radius:12px;padding:7px 10px;color:white;font:12px system-ui}.pansooni-toggle{background:#253b4c;color:white;border:1px solid #7795a8;border-radius:8px;padding:8px;cursor:pointer;white-space:nowrap}.pansooni-opacity-control{display:flex;flex-direction:column;gap:3px;width:110px}.pansooni-opacity-control span{display:flex;justify-content:space-between}.pansooni-opacity-control input{width:100%;margin:0}.pansooni-fire-mascot{position:fixed;left:0;top:0;width:110px;height:110px;object-fit:contain;cursor:grab;touch-action:none;user-select:none;z-index:135;filter:drop-shadow(0 4px 7px #0006)}.pansooni-fire-mascot[hidden]{display:none!important}.pansooni-dragging{cursor:grabbing}@media(max-width:780px){.pansooni-fire-mascot{width:80px;height:80px}.studio-mascot-controls{top:auto;bottom:8px}}`;
+ const code=(dance[0]+'\n'+opacity[0]).replaceAll("'assets/","'/studio/"+kind+"/mascot/");
+ return '<style>'+css+'</style><div class="studio-mascot-controls">'+toggle+slider+'</div><img class="pansooni-fire-mascot" alt="판순이 · 드래그하여 이동" width="110" height="110" draggable="false"><script nonce="'+nonce+'">'+code+'</script>';
+}
+export function studioShell(kind,sourceHtml=""){
  const nonce=random();
- const body='<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+(kind==='flashing'?'부자재 3D':'샌드위치패널 3D')+'</title><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#fff}iframe{display:block;border:0;width:100%;height:100%}</style><body><iframe title="3D 작업실" sandbox="allow-scripts allow-downloads" src="/studio/'+kind+'/document"></iframe><script nonce="'+nonce+'">(()=>{let busy=false,stopped=false;const frame=document.querySelector("iframe");async function check(){if(busy||stopped)return;busy=true;try{const r=await fetch("/studio/'+kind+'/status",{credentials:"same-origin",cache:"no-store",signal:AbortSignal.timeout(12000)});if(!r.ok)throw Error();frame.hidden=false}catch{stopped=true;frame.remove();location.replace("/studio/'+kind+'?expired=1")}finally{busy=false}}setInterval(check,15000);addEventListener("pageshow",check);document.addEventListener("visibilitychange",()=>{if(!document.hidden){frame.hidden=true;check()}})})();</script></body></html>';
- return new Response(body,{headers:{...H,'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':"default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'unsafe-inline'; frame-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"}});
+ const body='<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+(kind==='flashing'?'부자재 3D':'샌드위치패널 3D')+'</title><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#fff}iframe{display:block;border:0;width:100%;height:100%}</style><body><iframe title="3D 작업실" sandbox="allow-scripts allow-downloads" src="/studio/'+kind+'/document"></iframe><script nonce="'+nonce+'">(()=>{let busy=false,stopped=false;const frame=document.querySelector("iframe");async function check(){if(busy||stopped)return;busy=true;try{const r=await fetch("/studio/'+kind+'/status",{credentials:"same-origin",cache:"no-store",signal:AbortSignal.timeout(12000)});if(!r.ok)throw Error();frame.hidden=false}catch{stopped=true;frame.remove();location.replace("/studio/'+kind+'?expired=1")}finally{busy=false}}setInterval(check,15000);addEventListener("pageshow",check);document.addEventListener("visibilitychange",()=>{if(!document.hidden){frame.hidden=true;check()}})})();</script>'+mascotMarkup(sourceHtml,kind,nonce)+'</body></html>';
+ return new Response(body,{headers:{...H,'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':"default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'unsafe-inline'; frame-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"}});
 }
 export async function studioSession(request,env){
  const url=new URL(request.url),path=url.pathname;
@@ -54,10 +67,15 @@ export async function studioSession(request,env){
    await db.prepare('INSERT INTO yh_portal_studio_sessions(token_hash,kind,callback,expires) VALUES(?,?,?,?)').bind(await digest(token),claims.kind,grant.callback,grant.expires).run();
    return setCookie(new Response(null,{status:303,headers:{...H,Location:ORIGIN+'/studio/'+claims.kind}}),claims.kind,token,Math.max(1,Math.floor((grant.expires-Date.now())/1000)));
   }
-  const match=/^\/studio\/(flashing|panel)(?:\/(document|status))?$/.exec(path);
+  const match=/^\/studio\/(flashing|panel)(?:\/(document|status|mascot\/[^/]+))?$/.exec(path);
   if(!match||request.method!=='GET')return denied();
   const [,kind,part]=match;
   if(url.search||!await session(request,db,kind))return setCookie(denied(),kind,'',0);
+  if(part?.startsWith('mascot/')){
+   const name=part.slice(7);if(!mascotFiles.has(name))return denied();
+   const asset=await env.ASSETS.fetch(new Request(new URL('/assets/'+name,ORIGIN)));
+   return new Response(asset.body,{status:asset.status,headers:{...H,'Content-Type':'image/webp'}});
+  }
   if(part==='status')return Response.json({ok:true},{headers:H});
   if(part==='document'){
    // Direct navigation returns to the trusted shell which performs revocation polling.
@@ -65,6 +83,7 @@ export async function studioSession(request,env){
    const source=await env.ASSETS.fetch(new Request(new URL('/index.html',ORIGIN)));if(!source.ok)return denied(503);
    return new Response(studioDocument(await source.text(),kind),{headers:{...H,'Content-Type':'text/html; charset=utf-8','X-Younghwa-Studio':'scoped-v1','Content-Security-Policy':"sandbox allow-scripts allow-downloads; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; frame-ancestors 'self'; base-uri 'none'; object-src 'none'; form-action 'none'"}});
   }
-  return studioShell(kind);
+  const source=await env.ASSETS.fetch(new Request(new URL('/index.html',ORIGIN)));
+  return studioShell(kind,source.ok?await source.text():'');
  }catch{return denied(503)}
 }
