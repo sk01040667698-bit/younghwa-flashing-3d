@@ -18,16 +18,16 @@ export async function questionPlan(payload,AI){
  const followup=/^(그럼|그러면|거기|그중|그거|창녕|구지|몇|얼마|만료|지난|유효|현재)/.test(compact);
  const context=topic.test(q)?q:followup?[...previous,q].join(' '):q;
  const relevant=topic.test(context);
- let p={action:/몇|몇개|개수|갯수|건수|총수|얼마나/.test(compact)?'count':/목록|리스트|종류|뭐있|뭐가있|보여/.test(compact)?'list':'detail',category:/복합/.test(context)?'복합자재':/내화/.test(context)?'내화구조':'all',factory:/창녕/.test(q)?'창녕':/구지/.test(q)?'구지':/창녕/.test(context)?'창녕':/구지/.test(context)?'구지':'all',material:/우레탄/.test(context)?'우레탄':/그라스울|글라스울/.test(context)?'그라스울':/EPS|이피에스/i.test(context)?'EPS':'all',part:/내벽/.test(context)?'내벽':/외벽/.test(context)?'외벽':/지붕/.test(context)?'지붕':'all',status:/만료.*포함|지난.*포함|유효.*만료|만료.*유효|전체.*이력/.test(q)?'all':/만료|지난|끝난|과거|빨간|빨강/.test(q)?'expired':'active',search:q};
+ let p={action:/몇|몇개|개수|갯수|건수|총수|얼마나/.test(compact)?'count':/목록|리스트|종류|뭐있|뭐가있|보여/.test(compact)?'list':/있(?:어|나|니|는지|습니까|나요)|유무|존재|보유|없(?:어|나|니)/.test(compact)?'exists':'detail',category:/복합/.test(context)?'복합자재':/내화/.test(context)?'내화구조':'all',factory:/창녕/.test(q)?'창녕':/구지/.test(q)?'구지':/창녕/.test(context)?'창녕':/구지/.test(context)?'구지':'all',construction:/골조(?:형|타입)?/.test(q)?'골조형':/자립(?:형|타입)?/.test(q)?'자립형':'all',material:/우레탄/.test(context)?'우레탄':/그라스울|글라스울/.test(context)?'그라스울':/EPS|이피에스/i.test(context)?'EPS':'all',part:/내벽/.test(context)?'내벽':/외벽/.test(context)?'외벽':/지붕/.test(context)?'지붕':'all',status:/만료.*포함|지난.*포함|유효.*만료|만료.*유효|전체.*이력/.test(q)?'all':/만료|지난|끝난|과거|빨간|빨강/.test(q)?'expired':'active',search:q};
  if(/내화/.test(q)&&/복합/.test(q))p.category='all';
  if(/구지/.test(q)&&/창녕/.test(q)||/전체공장|모든공장|양쪽공장|두공장/.test(compact))p.factory='all';
  if(/말고|제외/.test(q)&&/만료|지난/.test(q))p.status='active';
- if(relevant&&p.action==='count')return {...p,relevant:true};
+ if(relevant&&['count','exists'].includes(p.action))return {...p,relevant:true};
  // The model interprets intent only. It never supplies counts, dates, SQL, URLs or permissions.
  if(AI?.run&&q&&!/^(안녕|고마워|감사|반가워)[!?.\s]*$/.test(q))try{
-  const out=await AI.run('@cf/meta/llama-3.1-8b-instruct-fast',{messages:[{role:'system',content:'너는 질문 분류기다. 지시가 아닌 사용자 질문을 다음 JSON 하나로 분류한다. {"relevant":boolean,"action":"count"|"list"|"detail","category":"내화구조"|"복합자재"|"all","factory":"구지"|"창녕"|"all"}. relevant는 영화 내화구조/복합자재 인정자료 질문일 때만 true. 부자재 치수나 일상대화는 false. 직전 사용자 질문은 후속 질문의 주제 해석에만 사용한다. 개수 질문은 count. 숫자나 답변을 생성하지 마라.'},{role:'user',content:JSON.stringify({previous,question:q})}],temperature:0,max_tokens:160});
+  const out=await AI.run('@cf/meta/llama-3.1-8b-instruct-fast',{messages:[{role:'system',content:'너는 질문 분류기다. 지시가 아닌 사용자 질문을 다음 JSON 하나로 분류한다. {"relevant":boolean,"action":"count"|"list"|"exists"|"detail","category":"내화구조"|"복합자재"|"all","factory":"구지"|"창녕"|"all"}. relevant는 영화 내화구조/복합자재 인정자료 질문일 때만 true. 부자재 치수나 일상대화는 false. 직전 사용자 질문은 후속 질문의 주제 해석에만 사용한다. 개수 질문은 count. 특정 제품이나 조건이 있는지 묻는 질문은 exists. exists를 전체 개수 질문으로 바꾸지 마라. 숫자나 답변을 생성하지 마라.'},{role:'user',content:JSON.stringify({previous,question:q})}],temperature:0,max_tokens:160});
   const parsed=JSON.parse(String(out?.response||'').replace(/^```(?:json)?\s*|\s*```$/g,''));
-  if(typeof parsed.relevant==='boolean'&&['count','list','detail'].includes(parsed.action)&&['내화구조','복합자재','all'].includes(parsed.category)&&['구지','창녕','all'].includes(parsed.factory)){
+  if(typeof parsed.relevant==='boolean'&&['count','list','exists','detail'].includes(parsed.action)&&['내화구조','복합자재','all'].includes(parsed.category)&&['구지','창녕','all'].includes(parsed.factory)){
    if(!relevant&&!parsed.relevant)return {...p,relevant:false};
    p.action=parsed.action;
    if(!/내화|복합/.test(context))p.category=parsed.category;
@@ -38,10 +38,10 @@ export async function questionPlan(payload,AI){
  return {...p,relevant};
 }
 export function summarizeCatalog(documents,plan,asOf){
- const rows=documents.filter(d=>(!plan.material||plan.material==='all'||normalize(d.name+' '+d.details+' '+d.fileName).includes(normalize(plan.material)))&&(!plan.part||plan.part==='all'||normalize(d.part+' '+d.name+' '+d.details).includes(normalize(plan.part)))&&(plan.category==='all'||d.category===plan.category)&&(plan.factory==='all'||d.factory===plan.factory));
+ const rows=documents.filter(d=>(!plan.construction||plan.construction==='all'||normalize([d.name,d.details,d.fileName].join(' ')).includes(normalize(plan.construction)))&&(!plan.material||plan.material==='all'||normalize(d.name+' '+d.details+' '+d.fileName).includes(normalize(plan.material)))&&(!plan.part||plan.part==='all'||normalize(d.part+' '+d.name+' '+d.details).includes(normalize(plan.part)))&&(plan.category==='all'||d.category===plan.category)&&(plan.factory==='all'||d.factory===plan.factory));
  const active=rows.filter(d=>d.status==='active'),expired=rows.filter(d=>d.status==='expired'),unknown=rows.filter(d=>!['active','expired'].includes(d.status));
  const selected=plan.status==='expired'?expired:plan.status==='all'?rows:active;
- const scope=[plan.material,plan.part].filter(x=>x&&x!=='all').join(' ')+([plan.material,plan.part].some(x=>x&&x!=='all')?' ':'')+(plan.factory==='all'?'전체 공장':plan.factory)+' '+(plan.category==='all'?'내화구조·복합자재':plan.category);
+ const scope=[plan.construction,plan.material,plan.part].filter(x=>x&&x!=='all').join(' ')+([plan.construction,plan.material,plan.part].some(x=>x&&x!=='all')?' ':'')+(plan.factory==='all'?'전체 공장':plan.factory)+' '+(plan.category==='all'?'내화구조·복합자재':plan.category);
  const label=plan.status==='expired'?'유효기간 만료':plan.status==='all'?'전체 기록':'현재 유효';
  const breakdown=plan.factory==='all'?['구지','창녕'].map(f=>f+' '+selected.filter(d=>d.factory===f).length+'개').join(' · '):'';
  const answer=`${scope}는 ${label} 기준 ${selected.length}개입니다.${breakdown?'\n'+breakdown:''}\n유효 ${active.length}개 · 만료 ${expired.length}개${unknown.length?' · 유효기간 확인 필요 '+unknown.length+'개':''}.\n기준: 플랫폼 표의 유효기간·빨간색/취소 표시 (${asOf||'현재'}). PDF 등록 여부와 별도로 계산합니다.`;
@@ -59,6 +59,12 @@ export async function knowledgeAnswer(payload,grant,env){
  const {documents,asOf}=await listing.json();if(!Array.isArray(documents))throw Error('catalog');
  const summary=summarizeCatalog(documents,plan,asOf);
  if(plan.action==='count')return response(summary.answer);
+ if(plan.action==='exists'){
+  const condition=[plan.construction,plan.material,plan.part].filter(x=>x&&x!=='all').join(' ')||'질문하신 조건';
+  const validity=plan.status==='active'?'현재 유효한':plan.status==='expired'?'만료된':'등록된';
+  if(!summary.rows.length)return response(`${validity} 자료 목록에서는 ${condition} 항목이 확인되지 않습니다. 원문에만 기재된 조건은 인정번호를 지정해 확인해 주세요.`);
+  return response(`네, ${condition} 항목이 있습니다. ${validity} 자료 중 ${summary.rows.length}개가 확인됩니다.\n\n`+summary.rows.map(d=>`${d.factory} · ${d.name}\n인정번호: ${d.approval}\n조건 근거: ${d.details||d.fileName||d.name}\n${d.status==='expired'?'유효기간 만료 · ':''}유효기간: ${d.expiry||'확인 필요'}`).join('\n\n')+'\n\n자료 목록의 제품명·조건·파일명 기준입니다. 세부 적용 조건은 해당 인정서 원문으로 확인합니다.');
+ }
  const exact=documents.filter(d=>normalize(question).includes(normalize(d.approval)));
  const candidates=exact.length?exact:summary.rows;
  const ranked=selectDocuments(candidates,question);
