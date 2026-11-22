@@ -1,3 +1,4 @@
+import pansooniAI from './ai-worker/src/index.js';
 import {PUBLIC_KEY,PORTAL,studioDocument} from './portal-3d.js';
 const ORIGIN='https://donghyun-3d.pages.dev';
 const H={'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
@@ -45,9 +46,21 @@ function mascotMarkup(html,kind,nonce){
  const code=(dance[0]+'\n'+opacity[0]).replaceAll("'assets/","'/studio/"+kind+"/mascot/");
  return '<style>'+css+'</style><div class="studio-mascot-controls">'+toggle+slider+'</div><img class="pansooni-fire-mascot" alt="판순이 · 드래그하여 이동" width="110" height="110" draggable="false"><script nonce="'+nonce+'">'+code+'</script>';
 }
+function chatMarkup(html,kind,nonce){
+ const script=[...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map(m=>m[1]).filter(s=>s.includes('/* Optional Cloudflare Workers AI backend.'));
+ const start=html.indexOf('<section id="pansooniChat"'),end=html.indexOf('<section id="pansooniMessenger"',start);
+ if(script.length!==1||start<0||end<0)return '';
+ // Restore the existing chatbot only, without loading the separate messenger or model scripts.
+ const body=html.slice(start,end).replace(/<div class="pansooni-chat-tabs"[\s\S]*?<\/div>/,'')+'</section>';
+ const code=script[0].replace("const aiEndpoint=candidate==='/api'?candidate:'';",'const aiEndpoint='+JSON.stringify('/studio/'+kind+'/ai')+';');
+ const styleStart=html.indexOf('.pansooni-chat{'),styleEnd=html.indexOf('.pansooni-pane-grip{',styleStart);
+ if(styleStart<0||styleEnd<0)return '';
+ const css=html.slice(styleStart,styleEnd)+`.pansooni-chat{left:auto;top:auto;right:16px;bottom:120px;z-index:150;width:min(365px,calc(100vw - 20px));height:min(510px,calc(100dvh - 140px))}.pansooni-chat button{cursor:pointer;color:#fff;border-radius:7px;border:1px solid #6f8796}.pansooni-chat-head{cursor:default}#pansooniChatMode{display:block!important}.pansooni-chat input{box-sizing:border-box}@media(max-width:780px){.pansooni-chat{right:10px;bottom:90px}}`;
+ return '<style>'+css+'</style>'+body+'<script nonce="'+nonce+'">'+code+'</script>';
+}
 export function studioShell(kind,sourceHtml=""){
  const nonce=random();
- const body='<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+(kind==='flashing'?'부자재 3D':'샌드위치패널 3D')+'</title><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#fff}iframe{display:block;border:0;width:100%;height:100%}</style><body><iframe title="3D 작업실" sandbox="allow-scripts allow-downloads" src="/studio/'+kind+'/document"></iframe><script nonce="'+nonce+'">(()=>{let busy=false,stopped=false;const frame=document.querySelector("iframe");async function check(){if(busy||stopped)return;busy=true;try{const r=await fetch("/studio/'+kind+'/status",{credentials:"same-origin",cache:"no-store",signal:AbortSignal.timeout(12000)});if(!r.ok)throw Error();frame.hidden=false}catch{stopped=true;frame.remove();location.replace("/studio/'+kind+'?expired=1")}finally{busy=false}}setInterval(check,15000);addEventListener("pageshow",check);document.addEventListener("visibilitychange",()=>{if(!document.hidden){frame.hidden=true;check()}})})();</script>'+mascotMarkup(sourceHtml,kind,nonce)+'</body></html>';
+ const body='<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+(kind==='flashing'?'부자재 3D':'샌드위치패널 3D')+'</title><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#fff}iframe{display:block;border:0;width:100%;height:100%}</style><body><iframe title="3D 작업실" sandbox="allow-scripts allow-downloads" src="/studio/'+kind+'/document"></iframe><script nonce="'+nonce+'">(()=>{let busy=false,stopped=false;const frame=document.querySelector("iframe");async function check(){if(busy||stopped)return;busy=true;try{const r=await fetch("/studio/'+kind+'/status",{credentials:"same-origin",cache:"no-store",signal:AbortSignal.timeout(12000)});if(!r.ok)throw Error();frame.hidden=false}catch{stopped=true;frame.remove();location.replace("/studio/'+kind+'?expired=1")}finally{busy=false}}setInterval(check,15000);addEventListener("pageshow",check);document.addEventListener("visibilitychange",()=>{if(!document.hidden){frame.hidden=true;check()}})})();</script>'+mascotMarkup(sourceHtml,kind,nonce)+chatMarkup(sourceHtml,kind,nonce)+'</body></html>';
  return new Response(body,{headers:{...H,'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':"default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'unsafe-inline'; frame-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"}});
 }
 export async function studioSession(request,env){
@@ -67,10 +80,24 @@ export async function studioSession(request,env){
    await db.prepare('INSERT INTO yh_portal_studio_sessions(token_hash,kind,callback,expires) VALUES(?,?,?,?)').bind(await digest(token),claims.kind,grant.callback,grant.expires).run();
    return setCookie(new Response(null,{status:303,headers:{...H,Location:ORIGIN+'/studio/'+claims.kind}}),claims.kind,token,Math.max(1,Math.floor((grant.expires-Date.now())/1000)));
   }
-  const match=/^\/studio\/(flashing|panel)(?:\/(document|status|mascot\/[^/]+))?$/.exec(path);
-  if(!match||request.method!=='GET')return denied();
+  const match=/^\/studio\/(flashing|panel)(?:\/(document|status|ai\/chat|mascot\/[^/]+))?$/.exec(path);
+  if(!match)return denied();
   const [,kind,part]=match;
+  if(request.method!=='GET'&&!(part==='ai/chat'&&request.method==='POST'))return denied();
   if(url.search||!await session(request,db,kind))return setCookie(denied(),kind,'',0);
+  if(part==='ai/chat'){
+   if(request.method==='GET')return Response.json({ok:Boolean(env.AI),mode:env.AI?'generative':'faq'},{headers:H});
+   if(request.headers.get('origin')!==ORIGIN)return denied();
+   if(!/^application\/json(?:;|$)/i.test(request.headers.get('content-type')||''))return Response.json({error:'unsupported_content_type'},{status:415,headers:H});
+   // Bound the request before forwarding to the existing AI handler. No prompts are logged.
+   const reader=request.body?.getReader();if(!reader)return Response.json({error:'invalid_json'},{status:400,headers:H});
+   let body='',size=0;const decoder=new TextDecoder();
+   for(;;){const {value,done}=await reader.read();if(done)break;size+=value.length;if(size>4000){await reader.cancel();return Response.json({error:'request_too_large'},{status:413,headers:H})}body+=decoder.decode(value,{stream:true})}body+=decoder.decode();
+   const headers=new Headers({'Content-Type':'application/json',Origin:ORIGIN});
+   const ip=request.headers.get('CF-Connecting-IP');if(ip)headers.set('CF-Connecting-IP',ip);
+   const reply=await pansooniAI.fetch(new Request(ORIGIN+'/chat',{method:'POST',headers,body}),{...env,SITE_ORIGIN:ORIGIN});
+   return new Response(reply.body,{status:reply.status,headers:{...H,'Content-Type':'application/json; charset=utf-8'}});
+  }
   if(part?.startsWith('mascot/')){
    const name=part.slice(7);if(!mascotFiles.has(name))return denied();
    const asset=await env.ASSETS.fetch(new Request(new URL('/assets/'+name,ORIGIN)));
