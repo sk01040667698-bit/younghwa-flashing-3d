@@ -6,7 +6,7 @@ async function portal(grant,action,plan){return fetch(PORTAL+'/accessories/sessi
 export async function calculatorAnswer(payload,grant,env){
  const question=typeof payload.question==='string'?payload.question.trim():'';
  const history=Array.isArray(payload.history)?payload.history.filter(x=>x?.role==='user'&&typeof x.content==='string').slice(-2).map(x=>x.content.slice(0,450)):[];
- const direct=topic.test(question)||thermal.test(question)&&/\d\s*(T|티|mm)|중부|남부|제주/i.test(question);
+ const direct=topic.test(question)||thermal.test(question)&&/\d\s*(T|티|mm)|중부|남부|제주|두께|규격|생산|환산/i.test(question);
  if(/내화|복합자재|인정번호|인정서|시험성적/.test(question)&&!topic.test(question))return null;
  const followup=/^(그럼|그러면|그거|그걸|이번|그라스울|우레탄|EPS|\d)/i.test(question)&&history.some(q=>topic.test(q));
  if(!direct&&!followup)return null;
