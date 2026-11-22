@@ -1,5 +1,5 @@
 import {PORTAL} from './portal-3d.js';
-const topic=/\bKS\b|KS\s*F|건축법|법령|고시|운영지침|관리기준|개정안|개정\s*\(안\)|신구조문|시험\s*(방법|규정|기준|조건)|불연|준불연|난연\s*(기준|시험|성능)|품질\s*인정|내화시험|화재시험|실물모형|신청\s*첨부|제조현장\s*품질|올린\s*자료|업로드.*자료/i;
+const topic=/\bKS\b|KS\s*F|건축법|법령|고시|운영지침|관리기준|개정안|개정\s*\(안\)|신구조문|시험\s*(방법|규정|기준|조건|종류|항목)|불연|준불연|난연\s*(기준|시험|성능)|품질\s*인정|내화시험|화재시험|실물모형|신청\s*첨부|제조현장\s*품질|차염|차열|가스유해|휨강도|인장강도|시험체|시편|시료채취|품질관리\s*항목|건축자재|내화성능|올린\s*자료|업로드.*자료/i;
 const reply=answer=>Response.json({answer,mode:'quality_sources'},{headers:{'Cache-Control':'private, no-store'}});
 async function search(grant,question){return fetch(PORTAL+'/accessories/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({callback:grant.callback,action:'quality-search',question}),redirect:'manual',signal:AbortSignal.timeout(20000)});}
 export async function qualityAnswer(payload,grant,env){
