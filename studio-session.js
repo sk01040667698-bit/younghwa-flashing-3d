@@ -1,3 +1,4 @@
+import {qualityAnswer} from './pansooni-quality.js';
 import {calculatorAnswer} from './pansooni-calculator.js';
 import {knowledgeAnswer} from './pansooni-knowledge.js';
 import pansooniAI from './ai-worker/src/index.js';
@@ -54,11 +55,11 @@ function chatMarkup(html,kind,nonce){
  if(script.length!==1||start<0||end<0)return '';
  // Restore the existing chatbot only, without loading the separate messenger or model scripts.
  const body=html.slice(start,end).replace(/<div class="pansooni-chat-tabs"[\s\S]*?<\/div>/,'')+'</section>';
- const code=script[0].replace("const aiEndpoint=candidate==='/api'?candidate:'';",'const aiEndpoint='+JSON.stringify('/studio/'+kind+'/ai')+';').replaceAll('현재 3D 사이트만','3D · 인정자료 · 판넬 계산기').replace("if(!aiEndpoint||!aiReady){","if(!aiEndpoint||(!aiReady&&!/열관류|열전도|무게|중량|철강|각관|코일|유효폭|계산|내화|복합자재|인정|시험성적|(?:FR-)?[WR]P[0-9]{2}-|FF-/i.test(q))){");
+ const code=script[0].replace("const aiEndpoint=candidate==='/api'?candidate:'';",'const aiEndpoint='+JSON.stringify('/studio/'+kind+'/ai')+';').replaceAll('현재 3D 사이트만','3D · 품질자료 · 판넬 계산기').replace("if(!aiEndpoint||!aiReady){","if(!aiEndpoint||(!aiReady&&!/KS|건축법|법령|고시|지침|불연|시험|열관류|열전도|무게|중량|철강|각관|코일|유효폭|계산|내화|복합자재|인정|시험성적|(?:FR-)?[WR]P[0-9]{2}-|FF-/i.test(q))){");
  const styleStart=html.indexOf('.pansooni-chat{'),styleEnd=html.indexOf('.pansooni-pane-grip{',styleStart);
  if(styleStart<0||styleEnd<0)return '';
  const css=html.slice(styleStart,styleEnd)+`.pansooni-chat{left:auto;top:auto;right:16px;bottom:120px;z-index:150;width:min(365px,calc(100vw - 20px));height:min(510px,calc(100dvh - 140px))}.pansooni-chat button{cursor:pointer;color:#fff;border-radius:7px;border:1px solid #6f8796}.pansooni-chat-head{cursor:default}#pansooniChatMode{display:block!important}.pansooni-chat input{box-sizing:border-box}@media(max-width:780px){.pansooni-chat{right:10px;bottom:90px}}`;
- return '<style>'+css+'</style>'+body.replace('현재 3D 사이트만 검색 · AI 연결 준비 중','부자재 · 인정자료 · 판넬 계산기').replace('제품·규격·사용법을 자유롭게 질문하세요','예: 우레탄 125T 중부1 외벽 열관류율').replace('이 3D 사이트에 등록된 공개 정보만 안내합니다. 회사 기밀·개인정보는 입력하지 마세요.','인정자료와 판넬 계산기를 권한 범위에서 조회합니다. 계산에 필요한 재질·치수·단위를 함께 적어 주세요.')+'<script nonce="'+nonce+'">'+code+'</script>';
+ return '<style>'+css+'</style>'+body.replace('현재 3D 사이트만 검색 · AI 연결 준비 중','부자재 · 품질자료 · 판넬 계산기').replace('제품·규격·사용법을 자유롭게 질문하세요','예: 우레탄 125T 중부1 외벽 열관류율').replace('이 3D 사이트에 등록된 공개 정보만 안내합니다. 회사 기밀·개인정보는 입력하지 마세요.','인정자료와 판넬 계산기를 권한 범위에서 조회합니다. 계산에 필요한 재질·치수·단위를 함께 적어 주세요.')+'<script nonce="'+nonce+'">'+code+'</script>';
 }
 export function studioShell(kind,sourceHtml=""){
  const nonce=random();
@@ -97,7 +98,7 @@ export async function studioSession(request,env){
    let body='',size=0;const decoder=new TextDecoder();
    for(;;){const {value,done}=await reader.read();if(done)break;size+=value.length;if(size>4000){await reader.cancel();return Response.json({error:'request_too_large'},{status:413,headers:H})}body+=decoder.decode(value,{stream:true})}body+=decoder.decode();
    let payload;try{payload=JSON.parse(body)}catch{return Response.json({error:'invalid_json'},{status:400,headers:H})}
-   try{const calculation=await calculatorAnswer(payload,grant,env);if(calculation)return calculation;const answer=await knowledgeAnswer(payload,grant,env);if(answer)return answer;}catch{return Response.json({answer:'플랫폼 자료 분석 중 오류가 발생했습니다. 본문 내용을 확인하지 못했으므로 추측하지 않겠습니다. 잠시 후 다시 질문해 주세요.',mode:'platform_documents'},{headers:H})}
+   try{const quality=await qualityAnswer(payload,grant,env);if(quality)return quality;const calculation=await calculatorAnswer(payload,grant,env);if(calculation)return calculation;const answer=await knowledgeAnswer(payload,grant,env);if(answer)return answer;}catch{return Response.json({answer:'플랫폼 자료 분석 중 오류가 발생했습니다. 본문 내용을 확인하지 못했으므로 추측하지 않겠습니다. 잠시 후 다시 질문해 주세요.',mode:'platform_documents'},{headers:H})}
    const headers=new Headers({'Content-Type':'application/json',Origin:ORIGIN});
    const ip=request.headers.get('CF-Connecting-IP');if(ip)headers.set('CF-Connecting-IP',ip);
    const reply=await pansooniAI.fetch(new Request(ORIGIN+'/chat',{method:'POST',headers,body}),{...env,SITE_ORIGIN:ORIGIN});
