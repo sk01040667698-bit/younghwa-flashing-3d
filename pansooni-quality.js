@@ -3,7 +3,7 @@ const topic=/\bKS\b|KS\s*F|건축법|법령|고시|운영지침|관리기준|개
 const reply=answer=>Response.json({answer,mode:'quality_sources'},{headers:{'Cache-Control':'private, no-store'}});
 async function search(grant,question){return fetch(PORTAL+'/accessories/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({callback:grant.callback,action:'quality-search',question}),redirect:'manual',signal:AbortSignal.timeout(20000)});}
 export function qualityQuery(question){
- let q=question.replace(/(준불연|불연|난연)\\s*시험/g,'$1 시험').replace(/KS\\s*F\\s*(?:ISO\\s*)?(\\d{4,5}(?:-\\d+)?)/gi,'KS $1 시험방법');
+ let q=question.replace(/(준불연|불연|난연)\s*시험/g,'$1 시험').replace(/KS\s*F\s*(?:ISO\s*)?(\d{4,5}(?:-\d+)?)/gi,'KS $1 시험방법');
  const material=q.match(/준불연|불연|난연/);
  if(material&&/시험|치는|치면|뭘|뭐로/.test(q))q+=' '+material[0]+'재료 시험방법 KS기준및 시험';
  return q;
